@@ -16,10 +16,10 @@ from env.metaworld_wrapper import PixelMetaWorld
 import mw_replay
 import train_bc_mw
 from eval_mw import run_eval
-
+import cv2
 
 BC_POLICIES = {
-    "assembly": "release/model/metaworld/pathAssembly_num_data3_num_epoch2_seed1/model1.pt",
+    "assembly": "exps/bc/metaworld/run/model1.pt",
     "boxclose": "release/model/metaworld/pathBoxClose_num_data3_num_epoch2_seed1/model1.pt",
     "coffeepush": "release/model/metaworld/pathCoffeePush_num_data3_num_epoch2_seed1/model1.pt",
     "stickpull": "release/model/metaworld/pathStickPull_num_data3_num_epoch2_seed1/model1.pt",
@@ -32,13 +32,13 @@ BC_DATASETS = {
     "stickpull": "release/data/metaworld/StickPull_frame_stack_1_96x96_end_on_success/dataset.hdf5",
 }
 
-SPARSE_THRESHOLD = 0.03
+SPARSE_THRESHOLD = 0.04
 
 @dataclass
 class MainConfig(common_utils.RunConfig):
     seed: int = 1
     # Sparse control parameters
-    Kp= 1.0
+    Kp= 3.0
     # env
     episode_length: int = 200
     # agent
@@ -70,7 +70,7 @@ class MainConfig(common_utils.RunConfig):
     add_bc_loss: int = 0
     # log
     use_wb: int = 0
-    save_dir: str = "exps/rl/metaworld/run5"
+    save_dir: str = "exps/rl/metaworld/ours_seed1_half_data"
 
     def __post_init__(self):
         self.preload_datapath = self.bc_policy
@@ -87,6 +87,11 @@ class Workspace:
         self.Kp = cfg.Kp
         self.work_dir = cfg.save_dir
         print(f"workspace: {self.work_dir}")
+
+                # Create a video window
+        # self.window_name = 'Metaworld Environment'
+        # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        # cv2.resizeWindow(self.window_name, 600, 600)  
 
         common_utils.set_all_seeds(cfg.seed)
         sys.stdout = common_utils.Logger(cfg.log_path, print_to_stdout=True)
@@ -243,13 +248,13 @@ class Workspace:
                 # Create a directory to save the rendered images
         render_dir = os.path.join(self.work_dir, 'renders')
         os.makedirs(render_dir, exist_ok=True)
-        mode = 'sparse'
+        # mode = 'sparse'
         while self.global_step < self.cfg.num_train_step:       ### Determine mode ###
             # print(f"Global step: {self.global_step}")
             object_pos = self.train_env.first_obs_pos
             # print(f"Global Step: {self.global_step}, Initial Object Position: {object_pos}")
-            if mode != "dense":
-                mode = self.determine_mode(obs, object_pos)
+            # if mode != "dense":
+            mode = self.determine_mode(obs, object_pos)
 
             # print(f"Determined Mode: {mode}")
             ### Act based on mode ###
@@ -270,17 +275,19 @@ class Workspace:
             with stopwatch.time("env step"):
                 obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
                 # Render and save the environment image
-                try:
-                    if self.global_step % 5 == 0:
-                        # print("Attempting to render the environment")
-                        img = self.train_env.env.env.render(mode='rgb_array')
-                        img_path = os.path.join(render_dir, f'step_{self.global_step}.png')
-                        # plt.imsave(img_path, img)
-                        # plt.imshow(img)
-                        # plt.axis('off')
-                        # plt.show()
-                except Exception as e:
-                    print(f"Error rendering/saving image: {e}")
+                # try:
+                #     if self.global_step % 5 == 0:
+                #         # print("Attempting to render the environment")
+                #         # img = self.train_env.env.env.render(mode='rgb_array')
+                #         # cv2.imshow(self.window_name, img)  # Show the image in the window
+                #         # cv2.waitKey(1)
+                #         # img_path = os.path.join(render_dir, f'step_{self.global_step}.png')
+                #         # plt.imsave(img_path, img)
+                #         # plt.imshow(img)
+                #         # plt.axis('off')
+                #         # plt.show()
+                # except Exception as e:
+                #     print(f"Error rendering/saving image: {e}")
 
             with stopwatch.time("add"):
                 assert isinstance(terminal, bool)
@@ -300,9 +307,11 @@ class Workspace:
 
                     # reset env
                     obs, _ = self.train_env.reset()
-                    mode = self.determine_mode(obs, object_pos)
+                    # mode = self.determine_mode(obs, object_pos)
                     
                     self.replay.new_episode(obs)
+            # if cv2.waitKey(1) & 0xFF == ord('q'):  # Press 'q' to exit the loop
+            #     break
                     # print(f"Environment reset at global step: {self.global_step}")
             ### logging ###
             if self.global_step % self.cfg.log_per_step == 0:
@@ -313,6 +322,8 @@ class Workspace:
                 with stopwatch.time("train"):
                     self.rl_train(stat)
                     self.train_step += 1
+
+        # cv2.destroyAllWindows()
 
     def log_and_save(
         self,
@@ -396,14 +407,14 @@ class Workspace:
         # Assuming observation contains the necessary information about distance
         # print("1st Obj Pose: ", object_pos)
         # print("end_effector Pose: ", obs["prop"][:3])
-        # print(obs['prop'])
+        # print("Prop: ", obs['prop'])
         # print(obs['obs'])
         # print(obs['obs'].shape)
 
         difference = object_pos - obs["prop"][:3]
         threshold = torch.norm(difference).item()
         # print(f"Threshold: {threshold}")
-        if threshold > SPARSE_THRESHOLD:  # Define your threshold
+        if threshold > SPARSE_THRESHOLD and obs["prop"][3] >= 1.0:  # Define your threshold
             return 'sparse'
         else:
             return 'dense'
