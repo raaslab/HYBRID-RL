@@ -8,7 +8,7 @@ import pprint
 import pyrallis
 import torch
 import numpy as np
-
+import matplotlib.pyplot as plt
 import common_utils
 from common_utils import ibrl_utils as utils
 from rl.q_agent import QAgent, QAgentConfig
@@ -19,7 +19,7 @@ from eval_mw import run_eval
 
 
 BC_POLICIES = {
-    "assembly": "exps/bc1/metaworld/run/model1.pt",
+    "assembly": "release/model/metaworld/pathAssembly_num_data3_num_epoch2_seed1/model1.pt",
     "boxclose": "release/model/metaworld/pathBoxClose_num_data3_num_epoch2_seed1/model1.pt",
     "coffeepush": "release/model/metaworld/pathCoffeePush_num_data3_num_epoch2_seed1/model1.pt",
     "stickpull": "release/model/metaworld/pathStickPull_num_data3_num_epoch2_seed1/model1.pt",
@@ -38,7 +38,7 @@ SPARSE_THRESHOLD = 0.03
 class MainConfig(common_utils.RunConfig):
     seed: int = 1
     # Sparse control parameters
-    Kp= 0.7
+    Kp= 1.0
     # env
     episode_length: int = 200
     # agent
@@ -70,7 +70,7 @@ class MainConfig(common_utils.RunConfig):
     add_bc_loss: int = 0
     # log
     use_wb: int = 0
-    save_dir: str = "exps/rl/metaworld/run1"
+    save_dir: str = "exps/rl/metaworld/run5"
 
     def __post_init__(self):
         self.preload_datapath = self.bc_policy
@@ -240,33 +240,57 @@ class Workspace:
 
         obs, _ = self.train_env.reset()
         self.replay.new_episode(obs)
-
+                # Create a directory to save the rendered images
+        render_dir = os.path.join(self.work_dir, 'renders')
+        os.makedirs(render_dir, exist_ok=True)
+        mode = 'sparse'
         while self.global_step < self.cfg.num_train_step:       ### Determine mode ###
+            # print(f"Global step: {self.global_step}")
             object_pos = self.train_env.first_obs_pos
+            # print(f"Global Step: {self.global_step}, Initial Object Position: {object_pos}")
+            if mode != "dense":
+                mode = self.determine_mode(obs, object_pos)
 
-            mode = self.determine_mode(obs, object_pos)
-
+            # print(f"Determined Mode: {mode}")
             ### Act based on mode ###
             if mode == 'sparse':
-                self.servoing(obs, object_pos)
+                action= self.servoing(obs, object_pos)
+                # mode = self.determine_mode(obs, object_pos)
+                
             # else:
             ### act ###
-            with stopwatch.time("act"), torch.no_grad(), utils.eval_mode(self.agent):
-                stddev = utils.schedule(self.cfg.stddev_schedule, self.global_step)
-                action = self.agent.act(obs, stddev=stddev, eval_mode=False)
-                stat["data/stddev"].append(stddev)
-
+            if mode == 'dense':
+                with stopwatch.time("act"), torch.no_grad(), utils.eval_mode(self.agent):
+                    stddev = utils.schedule(self.cfg.stddev_schedule, self.global_step)
+                    action = self.agent.act(obs, stddev=stddev, eval_mode=False)
+                    stat["data/stddev"].append(stddev)
+                # print(f"Dense Mode Action: {action}")
             ### env.step ###
+            # print(f"####################Determined Mode: {mode}")
             with stopwatch.time("env step"):
                 obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
+                # Render and save the environment image
+                try:
+                    if self.global_step % 5 == 0:
+                        # print("Attempting to render the environment")
+                        img = self.train_env.env.env.render(mode='rgb_array')
+                        img_path = os.path.join(render_dir, f'step_{self.global_step}.png')
+                        # plt.imsave(img_path, img)
+                        # plt.imshow(img)
+                        # plt.axis('off')
+                        # plt.show()
+                except Exception as e:
+                    print(f"Error rendering/saving image: {e}")
 
             with stopwatch.time("add"):
                 assert isinstance(terminal, bool)
                 reply = {"action": action}
                 self.replay.add(obs, reply, reward, terminal, success, image_obs)
                 self.global_step += 1
-
+                # print(f"Global step after increment: {self.global_step}")
+            # print(f"Global Step: {self.global_step}, Reward: {reward}, Terminal: {terminal}, Success: {success}")
             if terminal:
+                # print(f"Terminal condition met at global step: {self.global_step}")
                 with stopwatch.time("reset"):
                     self.global_episode += 1
                     stat["score/train_score"].append(success)
@@ -276,8 +300,10 @@ class Workspace:
 
                     # reset env
                     obs, _ = self.train_env.reset()
+                    mode = self.determine_mode(obs, object_pos)
+                    
                     self.replay.new_episode(obs)
-
+                    # print(f"Environment reset at global step: {self.global_step}")
             ### logging ###
             if self.global_step % self.cfg.log_per_step == 0:
                 self.log_and_save(stopwatch, stat, saver)
@@ -368,15 +394,15 @@ class Workspace:
 
     def determine_mode(self, obs, object_pos):
         # Assuming observation contains the necessary information about distance
-        print(object_pos)
-        print("type: ", type(obs))
-        print(list(obs.keys()))
+        # print("1st Obj Pose: ", object_pos)
+        # print("end_effector Pose: ", obs["prop"][:3])
         # print(obs['prop'])
         # print(obs['obs'])
         # print(obs['obs'].shape)
+
         difference = object_pos - obs["prop"][:3]
         threshold = torch.norm(difference).item()
-
+        # print(f"Threshold: {threshold}")
         if threshold > SPARSE_THRESHOLD:  # Define your threshold
             return 'sparse'
         else:
@@ -386,33 +412,40 @@ class Workspace:
         # Initialize the error tensor with a large initial value
         error = torch.tensor(100.0, dtype=torch.float32).to(self.train_env.device)
         gripper_control = -1
-        
-        while torch.norm(error).item() > 0.03:
+        step_count = 0  # Define step_count here
+        # while torch.norm(error).item() > SPARSE_THRESHOLD:
             # Compute the error
-            error = waypoint - obs["prop"][:3]  # obs["prop"][:3] - first object position
+        error = waypoint - obs["prop"][:3]  # obs["prop"][:3] - first object position
 
-            # Convert the error tensor to a NumPy array
-            error_np = error.cpu().numpy()
-            
-            # Compute the control action
-            control_action = self.Kp * error_np
-            action = np.zeros(4)
-            action[:3] = control_action
-            action[3] = gripper_control  # Control the gripper, set as needed
+        # Convert the error tensor to a NumPy array
+        error_np = error.cpu().numpy()
+        # print("error_)))))))))0000000000000000000000",torch.norm(error).item())
+        # Compute the control action
+        control_action = self.Kp * error_np
+        
+        action = np.zeros(4)
+        action[:3] = control_action
+        action[3] = gripper_control  # Control the gripper, set as needed
 
-            # Clip the action to ensure it’s within the action min and max limits
-            action = np.clip(action, -1, 1)
+        # Clip the action to ensure it’s within the action min and max limits
+        action = np.clip(action, -1, 1)
+        # print(f"Step {step_count}: Action: {action}, Error: {error_np}")
+        # # Convert the action back to a torch tensor and move it to the GPU
+        # # action = torch.from_numpy(action).float().to(self.train_env.device)
+        # print(f"Before step - Obs: {obs['prop'][:3]}, Action: {action}")
+        # Step the environment
+        
+        
+        # print(f"Step {step_count}: New Obs: {obs['prop'][:3]}, Reward: {reward}, Terminal: {terminal}")
 
-            # Convert the action back to a torch tensor and move it to the GPU
-            # action = torch.from_numpy(action).float().to(self.train_env.device)
-            
-            # Step the environment
-            obs, reward, terminal, success, image_obs = self.train_env.step(action)
-            
-            if terminal:
-                break
+ 
+            # if terminal:
+            #     # print("Episode terminated early.")
+            #     break
 
-        print("Reached First Object")
+
+        # print("Reached First Object")
+        return torch.tensor(action)
 
 
 

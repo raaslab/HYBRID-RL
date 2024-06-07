@@ -111,11 +111,14 @@ class MetaWorldEnv(gym.Env):
         self.env.reset(**kwargs)
         obs, _, _, _ = self.env.step(np.zeros_like(self.env.action_space.sample()))
         obs = np.take(obs, STATE_IDXS[self.env_name])
+        # print("MetworldEnv - Environment reset invoked.")
+
         return dict(state=obs)
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
         obs = dict(state=obs)
+        # print(f"MetaWorldEnv - {done}")
         return obs, reward, done, info
 
     def get_heuristic_action(self, clip_action=True):
@@ -158,11 +161,14 @@ class ProprioObsWrapper(gym.Wrapper):
     def reset(self):
         obs = self.env.reset()
         self._modify_observation(obs)
+        # print("Proprio Obs - Environment reset invoked.")
         return obs
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
         self._modify_observation(obs)
+        # print(f"ProprioObsWrap - {done}")
+
         return obs, reward, done, info
 
 
@@ -184,12 +190,15 @@ class ImageObsWrapper(gym.Wrapper):
 
     def reset(self):
         obs = self.env.reset()
+        # print("StackObs - Environment reset invoked.")
         self._modify_observation(obs)
         return obs
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
         self._modify_observation(obs)
+        # print(f"ImageObsWrap - {done}")
+
         return obs, reward, done, info
 
 
@@ -217,6 +226,7 @@ class ActionRepeatWrapper(gym.Wrapper):
             info = _info
             if done:
                 break
+        # print(f"ActionRepeatWrap - {done}")
 
         return obs, reward, done, info
 
@@ -236,6 +246,7 @@ class SparseRewardWrapper(gym.Wrapper):
         obs, reward, done, info = self.env.step(action)
         info["original_reward"] = reward
         reward = float(info["success"])
+        # print(f"SparseRewardWrap - {done}")
         return obs, reward, done, info
 
 
@@ -291,6 +302,7 @@ class StackObsWrapper(gym.Wrapper):
                 self.past_frames[key].append(obs[key])
             else:
                 self.past_obses[key].append(obs[key])
+        # print(f"StackObs - {done}")
 
         return self._get_stacked_observation(), reward, done, info
 
@@ -310,6 +322,7 @@ class TimeLimitWrapper(gym.Wrapper):
         obs, reward, done, info = self.env.step(action)
         self._elapsed_steps += 1
         done = done or self._elapsed_steps >= self._max_episode_steps
+        # print(f"TimelimitWrap - {done}")
         return obs, reward, done, info
 
 
@@ -446,19 +459,20 @@ class PixelMetaWorld:
 
         # print("Env obs: ", obs)
         self.update_first_obj_pos(obs['state'])
-
+        # print("ISIDe RESET #####################################")
         rl_obs, image_obs = self._extract_images(obs)
 
         if self.reward_model is not None:
             self.reward_model.reset()
 
         self.most_recent_info = None
-
+        # print("Terminal@@@@@@@@@@@@@@@@@@@@@@",self.terminal)
         return rl_obs, image_obs
 
     def step(self, action):
         self.time_step += 1
         obs, reward, terminal, info = self.env.step(action)
+        # print("########### Inside step terminal: ", terminal)
         self.most_recent_info = info
 
         rl_obs, image_obs = self._extract_images(obs)
@@ -475,6 +489,7 @@ class PixelMetaWorld:
             self.episode_extra_reward += reward_ret.reward
 
         self.terminal = terminal
+        # print("$$$$$$$$$$$$ Inside 2 step terminal: ", terminal)
         return rl_obs, reward, terminal, success, image_obs
 
     def get_heuristic_action(self, clip_action=False):
