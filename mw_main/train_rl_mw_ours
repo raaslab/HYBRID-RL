@@ -19,7 +19,7 @@ from eval_mw import run_eval
 import cv2
 
 BC_POLICIES = {
-    "assembly": "exps/bc/metaworld/run_seed1/model1.pt",
+    "assembly": "exps/bc/metaworld/run_seed0/model1.pt",
     "boxclose": "release/model/metaworld/pathBoxClose_num_data3_num_epoch2_seed1/model1.pt",
     "coffeepush": "release/model/metaworld/pathCoffeePush_num_data3_num_epoch2_seed1/model1.pt",
     "stickpull": "release/model/metaworld/pathStickPull_num_data3_num_epoch2_seed1/model1.pt",
@@ -36,7 +36,7 @@ SPARSE_THRESHOLD = 0.04
 
 @dataclass
 class MainConfig(common_utils.RunConfig):
-    seed: int = 1
+    seed: int = 0
     # Sparse control parameters
     Kp = 4.0
     # env

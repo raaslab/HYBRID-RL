@@ -3,7 +3,7 @@ stddev_max: 0.1
 bc_policy: "assembly"
 preload_num_data: 3
 env_reward_scale: 1
-num_train_step: 100000
+num_train_step: 200000
 replay_buffer_size: 500
 use_wb: 1
 num_eval_episode: 20
