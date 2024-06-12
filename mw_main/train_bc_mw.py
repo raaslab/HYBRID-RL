@@ -24,9 +24,9 @@ Batch = namedtuple("Batch", ["obs", "action"])
 
 root = os.path.dirname(os.path.dirname(__file__))
 DATASETS = {
-    "Assembly": "release/data/metaworld/Assembly_frame_stack_1_96x96_end_on_success/dataset.hdf5",
-    "BoxClose": "release/data/metaworld/BoxClose_frame_stack_1_96x96_end_on_success/dataset.hdf5",
-    "StickPull": "release/data/metaworld/StickPull_frame_stack_1_96x96_end_on_success/dataset.hdf5",
+    "Assembly": "release/data/metaworld/Assembly_frame_stack_1_96x96_end_on_success/split_part2_5.hdf5",
+    "BoxClose": "release/data/metaworld/BoxClose_frame_stack_1_96x96_end_on_success/split_part2_11.hdf5",
+    "StickPull": "release/data/metaworld/StickPull_frame_stack_1_96x96_end_on_success/split_part2_11.hdf5",
     "CoffeePush": "release/data/metaworld/CoffeePush_frame_stack_1_96x96_end_on_success/dataset.hdf5",
 }
 for k, v in DATASETS.items():
@@ -200,7 +200,7 @@ class MainConfig(common_utils.RunConfig):
     rl_image_size: int = -1
     # log
     use_wb: int = 0
-    save_dir: str = "exps/bc/metaworld/run_seed1"
+    save_dir: str = "exps/bc/metaworld/bc_stickpull_dense"
 
 
 def run(cfg: MainConfig, policy):
@@ -298,7 +298,7 @@ def run(cfg: MainConfig, policy):
     # final eval
     best_model = saver.get_best_model()
     policy.load_state_dict(torch.load(best_model))
-    scores = run_eval(dataset.env, policy, num_game=50, seed=0, verbose=False)
+    scores = run_eval(dataset.env, policy, num_game=50, seed=1, verbose=False)
     stat["final_score"].append(np.mean(scores))
     stat.summary(cfg.num_epoch)
 

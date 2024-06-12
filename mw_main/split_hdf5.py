@@ -1,15 +1,15 @@
 import h5py
 
 # Open the HDF5 file
-file_path = '/home/amisha/ibrl/release/data/metaworld/Assembly_frame_stack_1_96x96_end_on_success/dataset.hdf5'
+file_path = '/home/amisha/ibrl/release/data/metaworld/StickPull_frame_stack_1_96x96_end_on_success/dataset.hdf5'
 
 # Indices at which to split the demos
-split_indices = [14, 14, 14, 14, 14]
+split_indices = [8, 8, 8, 8, 8]
 
 # Open the original HDF5 file
 with h5py.File(file_path, 'r') as f:
     # Create new HDF5 files for the split parts
-    with h5py.File('/home/amisha/ibrl/release/data/metaworld/Assembly_frame_stack_1_96x96_end_on_success/split_part1.hdf5', 'w') as f1, h5py.File('/home/amisha/ibrl/release/data/metaworld/Assembly_frame_stack_1_96x96_end_on_success/split_part2.hdf5', 'w') as f2:
+    with h5py.File('/home/amisha/ibrl/release/data/metaworld/StickPull_frame_stack_1_96x96_end_on_success/split_part1_11.hdf5', 'w') as f1, h5py.File('/home/amisha/ibrl/release/data/metaworld/StickPull_frame_stack_1_96x96_end_on_success/split_part2_11.hdf5', 'w') as f2:
         # Iterate through the demos and split them
         for i, split_index in enumerate(split_indices):
             demo_name = f'demo_{i}'

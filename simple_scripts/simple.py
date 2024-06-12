@@ -21,6 +21,7 @@ def run(waypoint, obs):
     kp = 0.7
     for _ in range(max_steps):
         env.render()
+        print(img.shape)
         current_pos = obs[:3]  # Assuming the first 3 values of obs are x, y, z coordinates
         error = waypoint - current_pos
         control_action = kp * error

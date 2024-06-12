@@ -18,6 +18,38 @@ import train_bc_mw
 from eval_mw import run_eval
 import cv2
 
+import torch.nn as nn
+from torchvision import models
+from mode_classifier import HybridResNet, device
+from waypoint_prediction import WaypointPredictor
+
+# Assuming the classifier model is saved in 'sparse_dense.pth'
+classifier_model = HybridResNet(num_prop_features=1)
+classifier_model.load_state_dict(torch.load('mode.pth', map_location=device))
+classifier_model.to(device)
+classifier_model.eval()
+
+
+
+
+# Ensure the model is on the correct device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# waypoint_predictor.to(device)
+
+
+# def load_waypoint_predictor(model_path):
+#     model = WaypointPredictor()
+#     model.load_state_dict(torch.load(model_path))
+#     model.eval()  # Set the model to evaluation mode
+#     return model
+
+def predict_waypoint(model, corner2_image, prop):
+    with torch.no_grad():  # Ensure no gradients are computed during prediction
+        corner2_image = torch.tensor(corner2_image, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
+        prop = torch.tensor(prop, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
+        waypoint = model(corner2_image, prop)
+    return waypoint.numpy().flatten()
+
 BC_POLICIES = {
     "assembly": "exps/bc/metaworld/run_seed1/model1.pt",
     "boxclose": "release/model/metaworld/pathBoxClose_num_data3_num_epoch2_seed1/model1.pt",
@@ -34,6 +66,7 @@ BC_DATASETS = {
 
 SPARSE_THRESHOLD = 0.04
 
+    
 @dataclass
 class MainConfig(common_utils.RunConfig):
     seed: int = 1
@@ -70,7 +103,7 @@ class MainConfig(common_utils.RunConfig):
     add_bc_loss: int = 0
     # log
     use_wb: int = 0
-    save_dir: str = "exps/rl/metaworld/our_seed0_fullbc_200k"
+    save_dir: str = "exps/rl/metaworld/all_train_modes"
     # save_dir: str = "exps/rl/metaworld/our_seed1_fullbc_200k"
 
     def __post_init__(self):
@@ -83,6 +116,8 @@ class MainConfig(common_utils.RunConfig):
         return f"linear({self.stddev_max},{self.stddev_min},{self.stddev_step})"
 
 
+
+
 class Workspace:
     def __init__(self, cfg: MainConfig):
         self.Kp = cfg.Kp
@@ -90,12 +125,14 @@ class Workspace:
         print(f"workspace: {self.work_dir}")
 
                 # Create a video window
-        # self.window_name = 'Metaworld Environment'
-        # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        # cv2.resizeWindow(self.window_name, 600, 600)  
+        self.window_name = 'Metaworld Environment'
+        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(self.window_name, 600, 600)  
 
         common_utils.set_all_seeds(cfg.seed)
         sys.stdout = common_utils.Logger(cfg.log_path, print_to_stdout=True)
+
+
 
         pyrallis.dump(cfg, open(cfg.cfg_path, "w"))  # type: ignore
         print(common_utils.wrap_ruler("config"))
@@ -122,6 +159,11 @@ class Workspace:
         self.train_step = 0
         self.num_success = 0
         self._setup_env()
+
+        # Waypoint Predictor Initialization
+        self.waypoint_predictor = WaypointPredictor().cuda()
+        self.waypoint_predictor.load_state_dict(torch.load("waypoint.pth", map_location="cuda"))
+        self.waypoint_predictor.eval()  # Set the model to evaluation mode
 
         assert not cfg.q_agent.use_prop, "not implemented"
         self.agent = QAgent(
@@ -239,29 +281,50 @@ class Workspace:
         )
         self.agent.set_stats(stat)
         saver = common_utils.TopkSaver(save_dir=self.work_dir, topk=1)
-
+        # model_path = 'mode.pth'
+        # waypoint_predictor = load_waypoint_predictor(model_path)
         self.warm_up()
         self.num_success = self.replay.num_success
         stopwatch = common_utils.Stopwatch()
 
-        obs, _ = self.train_env.reset()
+        obs, image_obs = self.train_env.reset()
         self.replay.new_episode(obs)
                 # Create a directory to save the rendered images
+        print(obs.keys())  # To see all keys in the observation dictionary
+        print(image_obs.keys())  # If image_obs is a dictionary, check its structure
+
         render_dir = os.path.join(self.work_dir, 'renders')
         os.makedirs(render_dir, exist_ok=True)
-        mode = 'sparse'
+        # mode = 'sparse'
         while self.global_step < self.cfg.num_train_step:       ### Determine mode ###
-            # print(f"Global step: {self.global_step}")
-            object_pos = self.train_env.first_obs_pos
-            # print(f"Global Step: {self.global_step}, Initial Object Position: {object_pos}")
-            if mode != "dense":
-                mode = self.determine_mode(obs, object_pos)
+            # Assuming 'current_image' and 'current_props' are available from your RL environment
 
-            # print(f"Determined Mode: {mode}")
+
+            # print(f"Global step: {self.global_step}")
+            current_prop = obs['prop']  # Adapt these keys based on how your observations are structured
+            current_image = image_obs['corner2']
+           
+            
+            # object_pos = self.train_env.first_obs_pos
+            with torch.no_grad():
+                predicted_waypoint =  self.waypoint_predictor(torch.tensor(current_image, dtype=torch.float32, device="cuda").unsqueeze(0),
+                                   torch.tensor(current_prop[-1], dtype=torch.float32, device = "cuda").unsqueeze(0).unsqueeze(-1)).squeeze(0)
+                print("Predicted Waypoint: ", predicted_waypoint)
+
+
+
+            # waypoint = self.get_waypoint(current_image, current_prop[-1])
+
+            # print(f"Global Step: {self.global_step}, Initial Object Position: {object_pos}")
+            # if mode != "dense":
+            mode = self.determine_mode(current_prop, current_image)
+
+            print(f"Determined Mode: {mode}")
             ### Act based on mode ###
             if mode == 'sparse':
-                action= self.servoing(obs, object_pos)
-                # mode = self.determine_mode(obs, object_pos)
+                # action= self.servoing(obs, object_pos)
+                action= self.servoing(obs, predicted_waypoint)
+                mode = self.determine_mode(current_prop, current_image)
                 
             # else:
             ### act ###
@@ -276,19 +339,19 @@ class Workspace:
             with stopwatch.time("env step"):
                 obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
                 # Render and save the environment image
-                # try:
-                #     if self.global_step % 5 == 0:
-                #         # print("Attempting to render the environment")
-                #         img = self.train_env.env.env.render(mode='rgb_array')
-                #         cv2.imshow(self.window_name, img)  # Show the image in the window
-                #         cv2.waitKey(1)
-                #         # img_path = os.path.join(render_dir, f'step_{self.global_step}.png')
-                #         # plt.imsave(img_path, img)
-                #         # plt.imshow(img)
-                #         # plt.axis('off')
-                #         # plt.show()
-                # except Exception as e:
-                #     print(f"Error rendering/saving image: {e}")
+                try:
+                    if self.global_step % 1 == 0:
+                        # print("Attempting to render the environment")
+                        img = self.train_env.env.env.render(mode='rgb_array')
+                        cv2.imshow(self.window_name,  cv2.cvtColor(img, cv2.COLOR_BGR2RGB))  # Show the image in the window
+                        cv2.waitKey(1)
+                        # img_path = os.path.join(render_dir, f'step_{self.global_step}.png')
+                        # plt.imsave(img_path, img)
+                        # plt.imshow(img)
+                        # plt.axis('off')
+                        # plt.show()
+                except Exception as e:
+                    print(f"Error rendering/saving image: {e}")
 
             with stopwatch.time("add"):
                 assert isinstance(terminal, bool)
@@ -307,8 +370,8 @@ class Workspace:
                         stat["data/bc_replay"].append(self.replay.size(bc=True))
 
                     # reset env
-                    obs, _ = self.train_env.reset()
-                    mode = self.determine_mode(obs, object_pos)
+                    obs, image_obs = self.train_env.reset()
+                    mode = self.determine_mode(current_prop, current_image)
                     
                     self.replay.new_episode(obs)
             # if cv2.waitKey(1) & 0xFF == ord('q'):  # Press 'q' to exit the loop
@@ -404,22 +467,44 @@ class Workspace:
             print(f"saved?: {saved}")
             print(common_utils.get_mem_usage())
 
-    def determine_mode(self, obs, object_pos):
-        # Assuming observation contains the necessary information about distance
-        # print("1st Obj Pose: ", object_pos)
-        # print("end_effector Pose: ", obs["prop"][:3])
-        # print("Prop: ", obs['prop'])
-        # print(obs['obs'])
-        # print(obs['obs'].shape)
+    # def determine_mode(self, obs, object_pos):
+    #     difference = object_pos - obs["prop"][:3]
+    #     threshold = torch.norm(difference).item()
+    #     # print(f"Threshold: {threshold}")
+    #     # if threshold > SPARSE_THRESHOLD and obs["prop"][3] >= 1.0:  # Define your threshold
+    #     if threshold > SPARSE_THRESHOLD:  # Define your threshold
+    #         return 'sparse'
+    #     else:
+    #         return 'dense'
 
-        difference = object_pos - obs["prop"][:3]
-        threshold = torch.norm(difference).item()
-        # print(f"Threshold: {threshold}")
-        # if threshold > SPARSE_THRESHOLD and obs["prop"][3] >= 1.0:  # Define your threshold
-        if threshold > SPARSE_THRESHOLD:  # Define your threshold
-            return 'sparse'
-        else:
-            return 'dense'
+
+
+
+
+
+    def determine_mode(self, prop, corner2_image):
+        # Ensure the image is in [C, H, W] format
+        if corner2_image.shape != (3, 96, 96):  # Assuming the expected shape is [C, H, W]
+            corner2_image = corner2_image.permute(2, 0, 1)  # Change from [H, W, C] to [C, H, W]
+        print(corner2_image.shape)
+        prop = prop.to(device).float()
+
+        # Extract only the last value of the prop tensor
+        last_prop_value = prop[-1].unsqueeze(0)  # Adds an extra dimension to match batch size of 1
+
+        corner2_image = corner2_image.to(device).float()
+        
+        # Add batch dimensions if they’re not already present
+        if len(prop.shape) == 1:
+            prop = prop.unsqueeze(0)
+        if len(corner2_image.shape) == 3:
+            corner2_image = corner2_image.unsqueeze(0)
+
+        with torch.no_grad():
+            outputs = classifier_model(corner2_image, last_prop_value)
+            predicted_mode = torch.argmax(outputs, dim=1).item()  # Returns 0 or 1
+        return 'sparse' if predicted_mode == 0 else 'dense'
+
 
     def servoing(self, obs, waypoint):
         # Initialize the error tensor with a large initial value
@@ -442,28 +527,9 @@ class Workspace:
 
         # Clip the action to ensure it’s within the action min and max limits
         action = np.clip(action, -1, 1)
-        # print(f"Step {step_count}: Action: {action}, Error: {error_np}")
-        # # Convert the action back to a torch tensor and move it to the GPU
-        # # action = torch.from_numpy(action).float().to(self.train_env.device)
-        # print(f"Before step - Obs: {obs['prop'][:3]}, Action: {action}")
-        # Step the environment
-        
-        
-        # print(f"Step {step_count}: New Obs: {obs['prop'][:3]}, Reward: {reward}, Terminal: {terminal}")
-
- 
-            # if terminal:
-            #     # print("Episode terminated early.")
-            #     break
-
 
         # print("Reached First Object")
         return torch.tensor(action)
-
-
-
-
-
 
 
 def main(cfg: MainConfig):
