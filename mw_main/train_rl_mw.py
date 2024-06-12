@@ -20,11 +20,12 @@ import cv2
 
 import torch.nn as nn
 from torchvision import models
-from mode_classifier import HybridResNet, device
+# from mode_classifier import HybridResNet, device
+from mode_classifier_image import HybridResNet, device
 from waypoint_prediction import WaypointPredictor
 
 # Assuming the classifier model is saved in 'sparse_dense.pth'
-classifier_model = HybridResNet(num_prop_features=1)
+classifier_model = HybridResNet()
 classifier_model.load_state_dict(torch.load('mode.pth', map_location=device))
 classifier_model.to(device)
 classifier_model.eval()
@@ -317,14 +318,14 @@ class Workspace:
 
             # print(f"Global Step: {self.global_step}, Initial Object Position: {object_pos}")
             # if mode != "dense":
-            mode = self.determine_mode(current_prop, current_image)
+            mode = self.determine_mode(current_image)
 
             print(f"Determined Mode: {mode}")
             ### Act based on mode ###
             if mode == 'sparse':
                 # action= self.servoing(obs, object_pos)
                 action= self.servoing(obs, predicted_waypoint)
-                mode = self.determine_mode(current_prop, current_image)
+                mode = self.determine_mode(current_image)
                 
             # else:
             ### act ###
@@ -371,7 +372,7 @@ class Workspace:
 
                     # reset env
                     obs, image_obs = self.train_env.reset()
-                    mode = self.determine_mode(current_prop, current_image)
+                    mode = self.determine_mode(current_image)
                     
                     self.replay.new_episode(obs)
             # if cv2.waitKey(1) & 0xFF == ord('q'):  # Press 'q' to exit the loop
@@ -482,26 +483,26 @@ class Workspace:
 
 
 
-    def determine_mode(self, prop, corner2_image):
+    def determine_mode(self, corner2_image):
         # Ensure the image is in [C, H, W] format
         if corner2_image.shape != (3, 96, 96):  # Assuming the expected shape is [C, H, W]
             corner2_image = corner2_image.permute(2, 0, 1)  # Change from [H, W, C] to [C, H, W]
         print(corner2_image.shape)
-        prop = prop.to(device).float()
+        # prop = prop.to(device).float()
 
-        # Extract only the last value of the prop tensor
-        last_prop_value = prop[-1].unsqueeze(0)  # Adds an extra dimension to match batch size of 1
+        # # Extract only the last value of the prop tensor
+        # last_prop_value = prop[-1].unsqueeze(0)  # Adds an extra dimension to match batch size of 1
 
         corner2_image = corner2_image.to(device).float()
         
         # Add batch dimensions if they’re not already present
-        if len(prop.shape) == 1:
-            prop = prop.unsqueeze(0)
+        # if len(prop.shape) == 1:
+        #     prop = prop.unsqueeze(0)
         if len(corner2_image.shape) == 3:
             corner2_image = corner2_image.unsqueeze(0)
 
         with torch.no_grad():
-            outputs = classifier_model(corner2_image, last_prop_value)
+            outputs = classifier_model(corner2_image)
             predicted_mode = torch.argmax(outputs, dim=1).item()  # Returns 0 or 1
         return 'sparse' if predicted_mode == 0 else 'dense'
 
