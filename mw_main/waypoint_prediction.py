@@ -18,7 +18,7 @@ def load_data(filepaths):
                 demo_key = f'data/demo_{i}'
                 inputs_images.append(file[demo_key + '/obs/corner2_image'][:])
                 inputs_props.append(file[demo_key + '/obs/prop'][:])
-                waypoint_labels.append(file[demo_key + '/waypoint'][:])  # Use the dedicated waypoint key
+                waypoint_labels.append(file[demo_key + '/waypoint1'][:])  # Use the dedicated waypoint key
 
     inputs_images = np.concatenate(inputs_images, axis=0)
     inputs_props = np.concatenate(inputs_props, axis=0)
@@ -78,12 +78,11 @@ def test_model(model, test_loader, criterion):
     print(f'Test Loss: {avg_loss:.4f}')
 
 def main():
-    filepaths = [
-        '/home/amisha/Downloads/waypoint/assembly_waypoint1.hdf5',
-        '/home/amisha/Downloads/waypoint/boxclose_waypoint1.hdf5',
-        '/home/amisha/Downloads/waypoint/coffeepush_waypoint1.hdf5',
-        '/home/amisha/Downloads/waypoint/stickpull_waypoint1.hdf5'
-    ]
+    filepaths = ['/home/amisha/ibrl/release/data/metaworld/mw12/assembly_part1.hdf5', 
+                     '/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_part1.hdf5',
+                     '/home/amisha/ibrl/release/data/metaworld/mw12/stickpull_part1.hdf5',
+                     '/home/amisha/ibrl/release/data/metaworld/mw12/coffeepush_part1.hdf5']
+
     images, props, waypoints = load_data(filepaths)
     
     images_t = torch.tensor(images, dtype=torch.float32)
@@ -104,7 +103,7 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     train_model(model, train_loader, criterion, optimizer)
-    torch.save(model.state_dict(), 'waypoint.pth')
+    torch.save(model.state_dict(), 'waypoint_test.pth')
     print("Model Saved!")
 
     test_model(model, test_loader, criterion)

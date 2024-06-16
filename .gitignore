@@ -11,4 +11,8 @@ data/
 *.gif
 .env
 release/model
+release/data
 *.zip
+exp/
+experiments/
+models/

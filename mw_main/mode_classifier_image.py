@@ -9,6 +9,9 @@ from torch.utils.data import DataLoader, random_split
 from torch.optim import Adam
 from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
+from torchvision.models import resnet50, resnet101
+
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.cuda.init() 
@@ -32,7 +35,7 @@ class SparseDenseDataset(Dataset):
                     
                     
                     
-                    self.modes.append(demo_group['mode'][:])
+                    self.modes.append(demo_group['mode1'][:])
         
         self.images = np.concatenate(self.images, axis=0)
 
@@ -50,7 +53,7 @@ class SparseDenseDataset(Dataset):
             image = self.transform(image)
         
                 
-        return {'image': image, 'mode': mode}
+        return {'image': image, 'mode1': mode}
 
 
 def get_transform():
@@ -65,12 +68,20 @@ def get_transform():
 
 
 class HybridResNet(nn.Module):
-    def __init__(self):  # Changed number of prop features to 1
+    def __init__(self, model_type='resnet50'):  # Add model_type parameter
         super(HybridResNet, self).__init__()
-        base_model = resnet18(pretrained=True)
+        if model_type == 'resnet50':
+            base_model = resnet50(pretrained=True)
+        elif model_type == 'resnet101':
+            base_model = resnet101(pretrained=True)
+        else:
+            base_model = resnet18(pretrained=True)
+        
         self.features = nn.Sequential(*list(base_model.children())[:-1])
-
-        self.classifier = nn.Linear(512, 2)
+        if model_type in ['resnet50', 'resnet101']:
+            self.classifier = nn.Linear(2048, 2)  # Adjusted for ResNet-50/101
+        else:
+            self.classifier = nn.Linear(512, 2)  # For ResNet-18
 
     def forward(self, images):
         img_features = self.features(images)
@@ -93,7 +104,7 @@ def train(model, train_loader, val_loader, device, num_epochs=50):
         running_loss = 0.0
         for data in tqdm(train_loader, desc=f'Epoch {epoch+1}/{num_epochs}'):
             images = data['image'].to(device)
-            modes = data['mode'].to(device).long()
+            modes = data['mode1'].to(device).long()
             optimizer.zero_grad()
             outputs = model(images)
             loss = criterion(outputs, modes)
@@ -107,7 +118,7 @@ def train(model, train_loader, val_loader, device, num_epochs=50):
         # Save model if validation loss improved
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            torch.save(model.state_dict(), 'mode.pth')
+            torch.save(model.state_dict(), 'mode_new_resnet50.pth')
             print(f'Model saved: Epoch {epoch+1}, Validation Loss: {val_loss}')
 
 def validate(model, val_loader, device):
@@ -118,7 +129,7 @@ def validate(model, val_loader, device):
     with torch.no_grad():
         for data in val_loader:
             images = data['image'].to(device)
-            modes = data['mode'].to(device).long()
+            modes = data['mode1'].to(device).long()
             outputs = model(images)
             loss = criterion(outputs, modes)
             total_loss += loss.item()
@@ -130,10 +141,10 @@ def validate(model, val_loader, device):
 
 def main():
     device = get_device()
-    dataset_paths = ['/home/amisha/Downloads/mode/assembly_mode.hdf5', 
-                     '/home/amisha/Downloads/mode/boxclose_mode.hdf5',
-                     '/home/amisha/Downloads/mode/coffeepush_mode.hdf5',
-                     '/home/amisha/Downloads/mode/stickpull_mode.hdf5']
+    dataset_paths = ['/home/amisha/ibrl/release/data/metaworld/mw12/assembly_mw12.hdf5', 
+                     '/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_mw12.hdf5',
+                     '/home/amisha/ibrl/release/data/metaworld/mw12/stickpull_mw12.hdf5',
+                     '/home/amisha/ibrl/release/data/metaworld/mw12/coffeepush_mw12.hdf5']
     transform = get_transform()
     dataset = SparseDenseDataset(dataset_paths, transform=transform)
     train_size = int(0.8 * len(dataset))
