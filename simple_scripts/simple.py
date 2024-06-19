@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import torch
 import h5py
 
+print(metaworld.ML1.ENV_NAMES)  # Check out the available environments
+
 # Initialize the environment
 mt1 = metaworld.MT1("stick-pull-v2")
 env = mt1.train_classes["stick-pull-v2"]()
@@ -34,7 +36,7 @@ def run(waypoints, gripper_controls, obs):
     for waypoint, gripper_control in zip(waypoints, gripper_controls):
         for _ in range(max_steps):
             if env.viewer is not None:  # Additional check after attempting to render
-                env.viewer.cam.fixedcamid = 5
+                env.viewer.cam.fixedcamid = 2
                 env.viewer.cam.type = 2  # Using fixed camera type
             env.render()
 
