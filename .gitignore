@@ -16,3 +16,6 @@ release/data
 exp/
 experiments/
 models/
+waypoint_test.pth
+model_resnet50.pth
+mode.pth
