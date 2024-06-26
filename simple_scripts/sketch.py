@@ -70,6 +70,11 @@ def run(waypoints, gripper_controls, obs):
             # Project the 3D end-effector position to the camera space
             end_effector_pos_3d = obs[:3]
 
+            # Apply the coordinate transformation
+            cv_to_mujoco_transform = np.array([[0, 1, 0],
+                                               [1, 0, 0],
+                                               [0, 0, -1]])
+            end_effector_pos_3d = cv_to_mujoco_transform @ end_effector_pos_3d
 
             end_effector_pos_camera = camera_extrinsic @ np.concatenate((end_effector_pos_3d, [1]))[:, None]
             print("end_effector_pos_camera",end_effector_pos_camera)

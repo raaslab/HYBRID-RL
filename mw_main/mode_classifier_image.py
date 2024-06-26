@@ -135,6 +135,7 @@ def validate(model, val_loader, device):
             total_loss += loss.item()
     
     average_loss = total_loss / len(val_loader)
+    
     print(f'Validation Loss: {average_loss}')
     return average_loss
 

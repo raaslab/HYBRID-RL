@@ -24,7 +24,7 @@ from waypoint_prediction import WaypointPredictor
 
 
 classifier_model = HybridResNet()
-classifier_model.load_state_dict(torch.load('mode_new_resnet50.pth', map_location=device))
+classifier_model.load_state_dict(torch.load('models/mode_new_resnet50.pth', map_location=device))
 classifier_model.to(device)
 classifier_model.eval()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -87,7 +87,7 @@ class MainConfig(common_utils.RunConfig):
     add_bc_loss: int = 0
     # log
     use_wb: int = 0
-    save_dir: str = f"experiments/rl/metaworld/boxclose_new"
+    save_dir: str = f"experiments/rl/metaworld/test_boxclose"
     # save_dir: str = "exps/rl/metaworld/our_seed1_fullbc_200k"
 
     def __post_init__(self):
@@ -106,10 +106,11 @@ class Workspace:
         self.work_dir = cfg.save_dir
         print(f"workspace: {self.work_dir}")
 
-        #         # Create a video window
-        # self.window_name = 'Metaworld Environment'
-        # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        # cv2.resizeWindow(self.window_name, 600, 600)  
+        # Create a video window
+        self.window_name = 'Metaworld Environment'
+        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(self.window_name, 600, 600) 
+
         common_utils.set_all_seeds(cfg.seed)
         sys.stdout = common_utils.Logger(cfg.log_path, print_to_stdout=True)
         pyrallis.dump(cfg, open(cfg.cfg_path, "w"))  # type: ignore
@@ -139,7 +140,7 @@ class Workspace:
 
         # Waypoint Predictor Initialization
         self.waypoint_predictor = WaypointPredictor().cuda()
-        self.waypoint_predictor.load_state_dict(torch.load("waypoint_test.pth", map_location="cuda"))
+        self.waypoint_predictor.load_state_dict(torch.load("models/waypoint_test.pth", map_location="cuda"))
         self.waypoint_predictor.eval()  # Set the model to evaluation mode
 
         assert not cfg.q_agent.use_prop, "not implemented"
@@ -269,6 +270,7 @@ class Workspace:
         while self.global_step < self.cfg.num_train_step:    
             current_prop = obs['prop']  # Adapt these keys based on how your observations are structured
             current_image = image_obs['corner2']
+            mode_img = np.zeros((400,400))
             # object_pos = self.train_env.first_obs_pos
             mode = self.determine_mode(current_image)
             # print(f"Determined Mode: {mode}")
@@ -289,6 +291,25 @@ class Workspace:
                 # print(f"Dense Mode Action: {action}")
             with stopwatch.time("env step"):
                 obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
+                # ----> Render the environment <----
+                try:
+                    img = self.train_env.env.env.render(mode='rgb_array')
+
+                    mode_img = cv2.putText(mode_img, mode, (mode_img.shape[1]//2 - 80, mode_img.shape[0]//2), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2, cv2.LINE_AA)
+                    if mode=="sparse":
+                        mode_img = cv2.putText(mode_img, f"X: {predicted_waypoint[0]}", 
+                                               (50, mode_img.shape[0]//2+50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
+                        mode_img = cv2.putText(mode_img, f"Y: {predicted_waypoint[1]}", 
+                                               (50, mode_img.shape[0]//2+80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
+                        mode_img = cv2.putText(mode_img, f"Z: {predicted_waypoint[2]}", 
+                                               (50, mode_img.shape[0]//2+110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)                       
+                    cv2.imshow(self.window_name,  cv2.cvtColor(img, cv2.COLOR_BGR2RGB))                    
+                    cv2.imshow("Mode",  mode_img)                    
+                    cv2.waitKey(1)
+                except Exception as e:
+                    print(f"Error rendering image: {e}")   
+
+
             with stopwatch.time("add"):
                 assert isinstance(terminal, bool)
                 reply = {"action": action}
