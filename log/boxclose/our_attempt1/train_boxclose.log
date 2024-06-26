@@ -1,0 +1,1142 @@
+=================config=================
+add_bc_loss: 0
+batch_size: 256
+bc_policy: boxclose
+discount: 0.99
+env_reward_scale: 1
+episode_length: 100
+log_per_step: 5000
+mix_rl_rate: 1
+nstep: 3
+num_critic_update: 1
+num_eval_episode: 20
+num_train_step: 200000
+num_warm_up_episode: 50
+preload_datapath: release/data/metaworld/BoxClose_frame_stack_1_96x96_end_on_success/dataset.hdf5
+preload_num_data: 3
+pretrain_epoch_len: 10000
+pretrain_num_epoch: 0
+q_agent:
+  act_method: ibrl
+  actor:
+    dropout: 0.0
+    feature_dim: 64
+    hidden_dim: 1024
+    max_action_norm: -1
+    orth: 1
+    spatial_emb: 0
+  bc_loss_coef: 0.1
+  bc_loss_dynamic: 0
+  bootstrap_method: ibrl
+  critic:
+    drop: 0
+    feature_dim: 64
+    fuse_patch: 1
+    hidden_dim: 1024
+    norm_weight: 0
+    orth: 1
+    spatial_emb: 0
+  critic_target_tau: 0.01
+  device: cuda
+  enc_type: drq
+  ibrl_eps_greedy: 1
+  lr: 0.0001
+  resnet:
+    downsample: default
+    norm_layer: gnn
+    shallow: 0
+    stem: default
+  resnet96:
+    shallow: 0
+    use_1x1: 0
+  soft_ibrl_beta: 10
+  state_actor:
+    dropout: 0.5
+    hidden_dim: 512
+    layer_norm: 0
+    num_layer: 3
+    orth: 0
+  state_critic:
+    append_action: 0
+    dropout: 0.0
+    hidden_dim: 512
+    layer_norm: 0
+    num_k: 2
+    num_layer: 3
+    num_q: 10
+    orth: 0
+  stddev_clip: 0.3
+  use_prop: 0
+  vit:
+    depth: 3
+    embed_dim: 128
+    embed_norm: 0
+    embed_style: embed1
+    num_heads: 4
+    patch_size: 8
+    stride: -1
+replay_buffer_size: 500
+save_dir: experiments/rl/metaworld/hyrl_boxclose_seed1_fullbc_200000
+seed: 1
+stddev_max: 0.1
+stddev_min: 0.1
+stddev_step: 500000
+update_freq: 2
+use_bc: 1
+use_wb: 1
+========================================
+=========config of loaded agent=========
+batchsize: 256
+dataset:
+  action_repeat: 2
+  eval_episode_len: 100
+  frame_stack: 1
+  max_len: -1
+  num_data: 3
+  obs_stack: 1
+  path: data/metaworld/BoxClose_frame_stack_1_96x96_end_on_success/dataset.hdf5
+  rl_camera: corner2
+  use_state: 0
+ema: -1
+epoch_len: 10000
+grad_clip: 5
+load_model: none
+lr: 0.0001
+num_epoch: 2
+policy:
+  dropout: 0
+  feature_dim: 256
+  hidden_dim: 1024
+  net_type: resnet
+  orth_init: 1
+  proj_dim: 1024
+  resnet:
+    downsample: default
+    norm_layer: gnn
+    shallow: 0
+    stem: patch
+  use_prop: 0
+rl_image_size: 96
+robot: Sawyer
+save_dir: exps/bc/metaworld/pathBoxClose_num_data3_num_epoch2_seed1
+seed: 1
+task_name: BoxClose
+use_wb: 1
+weight_decay: 0
+========================================
+norm layer: gnn
+===============Env Config===============
+{'action_repeat': 2,
+ 'camera_names': ['corner2'],
+ 'device': 'cuda',
+ 'env_name': 'BoxClose',
+ 'episode_length': 100,
+ 'frame_stack': 1,
+ 'obs_stack': 1,
+ 'reward_shaping': False,
+ 'rl_camera': 'corner2',
+ 'rl_image_size': 96,
+ 'robots': 'Sawyer',
+ 'use_state': 0}
+========================================
+encoder output dim:  39200
+patch output dim:  32
+============encoder weights=============
+DrQEncoder(
+  (transform): Resize(size=84, interpolation=bicubic, max_size=None, antialias=True)
+  (convnet): Sequential(
+    (0): Conv2d(3, 32, kernel_size=(3, 3), stride=(2, 2))
+    (1): ReLU()
+    (2): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1))
+    (3): ReLU()
+    (4): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1))
+    (5): ReLU()
+    (6): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1))
+    (7): ReLU()
+  )
+)
+| Module           |   #Params |      % |
+|------------------+-----------+--------|
+| convnet.0.weight |       864 |   3.02 |
+| convnet.0.bias   |        32 |   0.11 |
+| convnet.2.weight |     9,216 |  32.18 |
+| convnet.2.bias   |        32 |   0.11 |
+| convnet.4.weight |     9,216 |  32.18 |
+| convnet.4.bias   |        32 |   0.11 |
+| convnet.6.weight |     9,216 |  32.18 |
+| convnet.6.bias   |        32 |   0.11 |
+| Total            |    28,640 | 100.00 |
+=============critic weights=============
+Critic(
+  (q1): _QNet(
+    (obs_proj): Sequential(
+      (0): Linear(in_features=39200, out_features=64, bias=True)
+      (1): Dropout(p=0, inplace=False)
+      (2): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
+      (3): ReLU()
+    )
+    (q): Sequential(
+      (0): Linear(in_features=68, out_features=1024, bias=True)
+      (1): Dropout(p=0, inplace=False)
+      (2): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+      (3): ReLU(inplace=True)
+      (4): Linear(in_features=1024, out_features=1024, bias=True)
+      (5): Dropout(p=0, inplace=False)
+      (6): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+      (7): ReLU(inplace=True)
+      (8): Linear(in_features=1024, out_features=1, bias=True)
+    )
+  )
+  (q2): _QNet(
+    (obs_proj): Sequential(
+      (0): Linear(in_features=39200, out_features=64, bias=True)
+      (1): Dropout(p=0, inplace=False)
+      (2): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
+      (3): ReLU()
+    )
+    (q): Sequential(
+      (0): Linear(in_features=68, out_features=1024, bias=True)
+      (1): Dropout(p=0, inplace=False)
+      (2): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+      (3): ReLU(inplace=True)
+      (4): Linear(in_features=1024, out_features=1024, bias=True)
+      (5): Dropout(p=0, inplace=False)
+      (6): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+      (7): ReLU(inplace=True)
+      (8): Linear(in_features=1024, out_features=1, bias=True)
+    )
+  )
+)
+| Module               |   #Params |      % |
+|----------------------+-----------+--------|
+| q1.obs_proj.0.weight | 2,508,800 |  34.51 |
+| q1.obs_proj.0.bias   |        64 |   0.00 |
+| q1.obs_proj.2.weight |        64 |   0.00 |
+| q1.obs_proj.2.bias   |        64 |   0.00 |
+| q1.q.0.weight        |    69,632 |   0.96 |
+| q1.q.0.bias          |     1,024 |   0.01 |
+| q1.q.2.weight        |     1,024 |   0.01 |
+| q1.q.2.bias          |     1,024 |   0.01 |
+| q1.q.4.weight        | 1,048,576 |  14.43 |
+| q1.q.4.bias          |     1,024 |   0.01 |
+| q1.q.6.weight        |     1,024 |   0.01 |
+| q1.q.6.bias          |     1,024 |   0.01 |
+| q1.q.8.weight        |     1,024 |   0.01 |
+| q1.q.8.bias          |         1 |   0.00 |
+| q2.obs_proj.0.weight | 2,508,800 |  34.51 |
+| q2.obs_proj.0.bias   |        64 |   0.00 |
+| q2.obs_proj.2.weight |        64 |   0.00 |
+| q2.obs_proj.2.bias   |        64 |   0.00 |
+| q2.q.0.weight        |    69,632 |   0.96 |
+| q2.q.0.bias          |     1,024 |   0.01 |
+| q2.q.2.weight        |     1,024 |   0.01 |
+| q2.q.2.bias          |     1,024 |   0.01 |
+| q2.q.4.weight        | 1,048,576 |  14.43 |
+| q2.q.4.bias          |     1,024 |   0.01 |
+| q2.q.6.weight        |     1,024 |   0.01 |
+| q2.q.6.bias          |     1,024 |   0.01 |
+| q2.q.8.weight        |     1,024 |   0.01 |
+| q2.q.8.bias          |         1 |   0.00 |
+| Total                | 7,268,738 | 100.00 |
+=============actor weights==============
+Actor(
+  (compress): Sequential(
+    (0): Linear(in_features=39200, out_features=64, bias=True)
+    (1): LayerNorm((64,), eps=1e-05, elementwise_affine=True)
+    (2): Dropout(p=0.0, inplace=False)
+    (3): ReLU()
+  )
+  (policy): Sequential(
+    (0): Linear(in_features=64, out_features=1024, bias=True)
+    (1): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+    (2): Dropout(p=0.0, inplace=False)
+    (3): ReLU()
+    (4): Linear(in_features=1024, out_features=1024, bias=True)
+    (5): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+    (6): Dropout(p=0.0, inplace=False)
+    (7): ReLU()
+    (8): Linear(in_features=1024, out_features=4, bias=True)
+    (9): Tanh()
+  )
+)
+| Module            |   #Params |      % |
+|-------------------+-----------+--------|
+| compress.0.weight | 2,508,800 |  69.05 |
+| compress.0.bias   |        64 |   0.00 |
+| compress.1.weight |        64 |   0.00 |
+| compress.1.bias   |        64 |   0.00 |
+| policy.0.weight   |    65,536 |   1.80 |
+| policy.0.bias     |     1,024 |   0.03 |
+| policy.1.weight   |     1,024 |   0.03 |
+| policy.1.bias     |     1,024 |   0.03 |
+| policy.4.weight   | 1,048,576 |  28.86 |
+| policy.4.bias     |     1,024 |   0.03 |
+| policy.5.weight   |     1,024 |   0.03 |
+| policy.5.bias     |     1,024 |   0.03 |
+| policy.8.weight   |     4,096 |   0.11 |
+| policy.8.bias     |         4 |   0.00 |
+| Total             | 3,633,348 | 100.00 |
+loading first 3 episodes from release/data/metaworld/BoxClose_frame_stack_1_96x96_end_on_success/dataset.hdf5
+Raw Dataset size (#episode): 5
+rewards: [0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+ 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+ 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 1.]
+rewards: [0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+ 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+ 0. 0. 0. 0. 0. 1.]
+rewards: [0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+ 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.
+ 0. 0. 0. 0. 0. 0. 0. 1.]
+Size of the replay buffer: 3, # success: 3
+obs torch.Size([3, 96, 96])
+prop torch.Size([4])
+Warm up done. #episode: 50
+#episode from warmup: 47, #reward: 20.0
+dict_keys(['obs', 'prop'])
+dict_keys(['corner2'])
+Saved model to experiments/rl/metaworld/hyrl_boxclose_seed1_fullbc_200000/model0.pt
+saved?: True
+[5000] Time spent = 430.26 s
+5000: other/elapsed_time  : 333.22
+5000: other/episode       : 51
+5000: other/replay        : 101
+5000: other/speed         : 15.01
+5000: other/step          : 5000
+5000: other/train_step    : 2499
+5000: score/num_success   : 26
+5000: score/score         : 0.05
+5000: actor/anorm_bc      [  950]: avg:   1.3229, min:   0.5332[ 870], max:   1.8305[ 509]
+5000: actor/anorm_rl      [  950]: avg:   1.3901, min:   0.2239[ 736], max:   2.0000[  28]
+5000: actor/bc_eval       [ 1991]: avg:   0.2079, min:   0.0000[   1], max:   1.0000[   7]
+5000: actor/bc_train      [  950]: avg:   0.3453, min:   0.0000[   2], max:   1.0000[   1]
+5000: actor/bootstrap_bc  [ 2499]: avg:   0.1394, min:   0.0000[  54], max:   0.7305[  25]
+5000: data/batch_R        [ 2499]: avg:   0.0114, min:   0.0000[  26], max:   0.0387[ 122]
+5000: data/discount       [ 2499]: avg:   0.9366, min:   0.8907[1621], max:   0.9665[ 393]
+5000: data/episode_len    [   51]: avg:  97.3725, min:  53.0000[  49], max: 100.0000[   1]
+5000: data/stddev         [  950]: avg:   0.1000, min:   0.1000[   8], max:   0.1000[   5]
+5000: score/train_score   [   51]: avg:   0.0588, min:   0.0000[   1], max:   1.0000[  26]
+5000: train/actor_loss    [ 2499]: avg:  -0.3385, min:  -0.6761[2498], max:   2.9745[   1]
+5000: train/critic_loss   [ 2499]: avg:   0.0259, min:   0.0035[1599], max:  13.1581[   2]
+5000: train/critic_qt     [ 2499]: avg:   0.2872, min:  -0.9243[  11], max:   0.6055[2093]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| env step |  5000 |           7.1 |  11.4 |
+| add      |  5000 |           0.2 |   0.2 |
+| train    |  2499 |          89.3 |  71.6 |
+| act      |   950 |          11.2 |   3.4 |
+| reset    |    51 |          36   |   0.6 |
+| eval     |     1 |       39577.2 |  12.7 |
+| total(s) |     1 |         311.6 | 100   |
+total time: 0:06:13
+Mem info: used: 6.922 GB, avail: 121.328 GB, total: 156.060 GB
+saved?: False
+[10000] Time spent = 374.08 s
+10000: other/elapsed_time  : 333.75
+10000: other/episode       : 103
+10000: other/replay        : 153
+10000: other/speed         : 14.98
+10000: other/step          : 10000
+10000: other/train_step    : 4999
+10000: score/num_success   : 31
+10000: score/score         : 0.00
+10000: actor/anorm_bc      [ 1060]: avg:   1.3041, min:   0.5430[ 153], max:   1.8220[  90]
+10000: actor/anorm_rl      [ 1060]: avg:   1.3481, min:   0.3207[  62], max:   2.0000[ 672]
+10000: actor/bc_eval       [ 2000]: avg:   0.2270, min:   0.0000[   1], max:   1.0000[ 152]
+10000: actor/bc_train      [ 1060]: avg:   0.3632, min:   0.0000[   1], max:   1.0000[   2]
+10000: actor/bootstrap_bc  [ 2500]: avg:   0.1783, min:   0.0820[1517], max:   0.3828[ 245]
+10000: data/batch_R        [ 2500]: avg:   0.0071, min:   0.0000[   7], max:   0.0348[   2]
+10000: data/discount       [ 2500]: avg:   0.9382, min:   0.8983[   2], max:   0.9703[ 503]
+10000: data/episode_len    [   52]: avg:  96.7885, min:  52.0000[  40], max: 100.0000[   1]
+10000: data/stddev         [ 1060]: avg:   0.1000, min:   0.1000[   7], max:   0.1000[   2]
+10000: score/train_score   [   52]: avg:   0.0962, min:   0.0000[   1], max:   1.0000[  26]
+10000: train/actor_loss    [ 2500]: avg:  -0.6003, min:  -0.6986[ 620], max:  -0.4975[2222]
+10000: train/critic_loss   [ 2500]: avg:   0.0164, min:   0.0017[1864], max:   0.0424[ 904]
+10000: train/critic_qt     [ 2500]: avg:   0.5776, min:   0.5162[2429], max:   0.6323[ 620]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          89.2 |  71.2 |
+| act      |  1060 |          11.6 |   3.9 |
+| env step |  5000 |           7   |  11.2 |
+| add      |  5000 |           0.2 |   0.3 |
+| reset    |    52 |          36.4 |   0.6 |
+| eval     |     1 |       40108.7 |  12.8 |
+| total(s) |     1 |         313.1 | 100   |
+total time: 0:12:27
+Mem info: used: 6.933 GB, avail: 121.374 GB, total: 156.060 GB
+Saved model to experiments/rl/metaworld/hyrl_boxclose_seed1_fullbc_200000/model0.pt
+saved?: True
+[15000] Time spent = 363.92 s
+15000: other/elapsed_time  : 328.66
+15000: other/episode       : 157
+15000: other/replay        : 207
+15000: other/speed         : 15.21
+15000: other/step          : 15000
+15000: other/train_step    : 7499
+15000: score/num_success   : 41
+15000: score/score         : 0.20
+15000: actor/anorm_bc      [ 1318]: avg:   1.2884, min:   0.5210[ 141], max:   1.8185[ 291]
+15000: actor/anorm_rl      [ 1318]: avg:   1.3878, min:   0.2607[ 568], max:   2.0000[ 121]
+15000: actor/bc_eval       [ 1769]: avg:   0.2018, min:   0.0000[   1], max:   1.0000[   7]
+15000: actor/bc_train      [ 1318]: avg:   0.4226, min:   0.0000[   7], max:   1.0000[   1]
+15000: actor/bootstrap_bc  [ 2500]: avg:   0.1662, min:   0.0781[1357], max:   0.2539[ 974]
+15000: data/batch_R        [ 2500]: avg:   0.0064, min:   0.0000[   2], max:   0.0349[ 132]
+15000: data/discount       [ 2500]: avg:   0.9387, min:   0.8983[ 595], max:   0.9703[ 734]
+15000: data/episode_len    [   54]: avg:  91.6667, min:  48.0000[  12], max: 100.0000[   1]
+15000: data/stddev         [ 1318]: avg:   0.1000, min:   0.1000[   1], max:   0.1000[  16]
+15000: score/train_score   [   54]: avg:   0.1852, min:   0.0000[   1], max:   1.0000[   2]
+15000: train/actor_loss    [ 2500]: avg:  -0.5122, min:  -0.6085[  95], max:  -0.4371[1912]
+15000: train/critic_loss   [ 2500]: avg:   0.0120, min:   0.0015[2168], max:   0.0312[  66]
+15000: train/critic_qt     [ 2500]: avg:   0.4940, min:   0.4382[2269], max:   0.5528[  10]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          87.7 |  71.8 |
+| env step |  5000 |           6.8 |  11.2 |
+| add      |  5000 |           0.1 |   0.2 |
+| reset    |    54 |          34.1 |   0.6 |
+| act      |  1318 |          11.2 |   4.8 |
+| eval     |     1 |       34890.7 |  11.4 |
+| total(s) |     1 |         305.5 | 100   |
+total time: 0:18:31
+Mem info: used: 6.933 GB, avail: 121.389 GB, total: 156.060 GB
+Saved model to experiments/rl/metaworld/hyrl_boxclose_seed1_fullbc_200000/model0.pt
+saved?: True
+[20000] Time spent = 369.57 s
+20000: other/elapsed_time  : 330.93
+20000: other/episode       : 217
+20000: other/replay        : 267
+20000: other/speed         : 15.11
+20000: other/step          : 20000
+20000: other/train_step    : 9999
+20000: score/num_success   : 65
+20000: score/score         : 0.20
+20000: actor/anorm_bc      [ 1475]: avg:   1.2966, min:   0.5230[1449], max:   1.7926[ 823]
+20000: actor/anorm_rl      [ 1475]: avg:   1.3942, min:   0.2738[1073], max:   2.0000[ 885]
+20000: actor/bc_eval       [ 1844]: avg:   0.2570, min:   0.0000[   2], max:   1.0000[   1]
+20000: actor/bc_train      [ 1475]: avg:   0.3281, min:   0.0000[   3], max:   1.0000[   1]
+20000: actor/bootstrap_bc  [ 2500]: avg:   0.1378, min:   0.0547[2457], max:   0.2422[1414]
+20000: data/batch_R        [ 2500]: avg:   0.0074, min:   0.0000[  17], max:   0.0272[1540]
+20000: data/discount       [ 2500]: avg:   0.9384, min:   0.8983[ 111], max:   0.9703[ 962]
+20000: data/episode_len    [   60]: avg:  83.5667, min:  49.0000[  15], max: 100.0000[   2]
+20000: data/stddev         [ 1475]: avg:   0.1000, min:   0.1000[   4], max:   0.1000[   2]
+20000: score/train_score   [   60]: avg:   0.4000, min:   0.0000[   2], max:   1.0000[   1]
+20000: train/actor_loss    [ 2500]: avg:  -0.5092, min:  -0.5845[2390], max:  -0.4267[ 195]
+20000: train/critic_loss   [ 2500]: avg:   0.0116, min:   0.0019[2099], max:   0.0312[2294]
+20000: train/critic_qt     [ 2500]: avg:   0.4874, min:   0.4475[ 328], max:   0.5423[2483]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          88.5 |  71   |
+| act      |  1475 |          11.2 |   5.3 |
+| env step |  5000 |           6.6 |  10.6 |
+| add      |  5000 |           0.1 |   0.2 |
+| reset    |    60 |          36   |   0.7 |
+| eval     |     1 |       38229.9 |  12.3 |
+| total(s) |     1 |         311.8 | 100   |
+total time: 0:24:40
+Mem info: used: 6.933 GB, avail: 121.872 GB, total: 156.060 GB
+saved?: False
+[25000] Time spent = 379.90 s
+25000: other/elapsed_time  : 341.82
+25000: other/episode       : 274
+25000: other/replay        : 324
+25000: other/speed         : 14.63
+25000: other/step          : 25000
+25000: other/train_step    : 12499
+25000: score/num_success   : 83
+25000: score/score         : 0.10
+25000: actor/anorm_bc      [ 1514]: avg:   1.2966, min:   0.6312[ 284], max:   1.8344[ 270]
+25000: actor/anorm_rl      [ 1514]: avg:   1.3899, min:   0.3037[ 773], max:   1.9525[1200]
+25000: actor/bc_eval       [ 1881]: avg:   0.3620, min:   0.0000[   1], max:   1.0000[  17]
+25000: actor/bc_train      [ 1514]: avg:   0.3514, min:   0.0000[   2], max:   1.0000[   1]
+25000: actor/bootstrap_bc  [ 2500]: avg:   0.1173, min:   0.0508[  29], max:   0.1914[ 706]
+25000: data/batch_R        [ 2500]: avg:   0.0082, min:   0.0000[   5], max:   0.0272[ 311]
+25000: data/discount       [ 2500]: avg:   0.9379, min:   0.8907[1796], max:   0.9703[2086]
+25000: data/episode_len    [   57]: avg:  87.6667, min:  49.0000[   2], max: 100.0000[   1]
+25000: data/stddev         [ 1514]: avg:   0.1000, min:   0.1000[   8], max:   0.1000[  12]
+25000: score/train_score   [   57]: avg:   0.3158, min:   0.0000[   1], max:   1.0000[   2]
+25000: train/actor_loss    [ 2500]: avg:  -0.5436, min:  -0.6076[2392], max:  -0.4814[ 124]
+25000: train/critic_loss   [ 2500]: avg:   0.0125, min:   0.0015[ 851], max:   0.0337[2051]
+25000: train/critic_qt     [ 2500]: avg:   0.5210, min:   0.4795[1796], max:   0.5642[2449]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          90.7 |  70.5 |
+| env step |  5000 |           7.2 |  11.1 |
+| add      |  5000 |           0.2 |   0.2 |
+| reset    |    57 |          37.5 |   0.7 |
+| act      |  1514 |          12.1 |   5.7 |
+| eval     |     1 |       37872.2 |  11.8 |
+| total(s) |     1 |         321.6 | 100   |
+total time: 0:31:00
+Mem info: used: 6.933 GB, avail: 121.902 GB, total: 156.060 GB
+saved?: False
+[30000] Time spent = 377.56 s
+30000: other/elapsed_time  : 337.08
+30000: other/episode       : 331
+30000: other/replay        : 381
+30000: other/speed         : 14.83
+30000: other/step          : 30000
+30000: other/train_step    : 14999
+30000: score/num_success   : 99
+30000: score/score         : 0.05
+30000: actor/anorm_bc      [  975]: avg:   1.2670, min:   0.6460[ 617], max:   1.8264[ 133]
+30000: actor/anorm_rl      [  975]: avg:   1.4565, min:   0.4275[ 787], max:   1.9823[ 567]
+30000: actor/bc_eval       [ 1966]: avg:   0.2136, min:   0.0000[   2], max:   1.0000[   1]
+30000: actor/bc_train      [  975]: avg:   0.2821, min:   0.0000[   1], max:   1.0000[   8]
+30000: actor/bootstrap_bc  [ 2500]: avg:   0.0927, min:   0.0156[1699], max:   0.2031[ 208]
+30000: data/batch_R        [ 2500]: avg:   0.0086, min:   0.0000[  15], max:   0.0348[2421]
+30000: data/discount       [ 2500]: avg:   0.9376, min:   0.8869[2259], max:   0.9703[  60]
+30000: data/episode_len    [   57]: avg:  87.7193, min:  48.0000[  41], max: 100.0000[   1]
+30000: data/stddev         [  975]: avg:   0.1000, min:   0.1000[  17], max:   0.1000[   4]
+30000: score/train_score   [   57]: avg:   0.2807, min:   0.0000[   1], max:   1.0000[   3]
+30000: train/actor_loss    [ 2500]: avg:  -0.5661, min:  -0.6383[1955], max:  -0.4980[ 345]
+30000: train/critic_loss   [ 2500]: avg:   0.0129, min:   0.0015[1273], max:   0.0344[1961]
+30000: train/critic_qt     [ 2500]: avg:   0.5408, min:   0.4829[ 495], max:   0.5946[2098]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          90.2 |  71.5 |
+| env step |  5000 |           7   |  11.2 |
+| add      |  5000 |           0.2 |   0.2 |
+| act      |   975 |          12   |   3.7 |
+| reset    |    57 |          35.9 |   0.6 |
+| eval     |     1 |       40277.5 |  12.8 |
+| total(s) |     1 |         315.5 | 100   |
+total time: 0:37:18
+Mem info: used: 6.917 GB, avail: 121.804 GB, total: 156.060 GB
+Saved model to experiments/rl/metaworld/hyrl_boxclose_seed1_fullbc_200000/model0.pt
+saved?: True
+[35000] Time spent = 380.46 s
+35000: other/elapsed_time  : 353.57
+35000: other/episode       : 390
+35000: other/replay        : 440
+35000: other/speed         : 14.14
+35000: other/step          : 35000
+35000: other/train_step    : 17499
+35000: score/num_success   : 120
+35000: score/score         : 0.75
+35000: actor/anorm_bc      [ 1028]: avg:   1.2897, min:   0.5661[ 599], max:   1.8103[ 969]
+35000: actor/anorm_rl      [ 1028]: avg:   1.4791, min:   0.3414[ 820], max:   1.9996[ 422]
+35000: actor/bc_eval       [ 1180]: avg:   0.1847, min:   0.0000[   3], max:   1.0000[   1]
+35000: actor/bc_train      [ 1028]: avg:   0.2247, min:   0.0000[   1], max:   1.0000[  51]
+35000: actor/bootstrap_bc  [ 2500]: avg:   0.0992, min:   0.0391[ 204], max:   0.1758[2327]
+35000: data/batch_R        [ 2500]: avg:   0.0089, min:   0.0000[   2], max:   0.0311[2099]
+35000: data/discount       [ 2500]: avg:   0.9373, min:   0.8869[1685], max:   0.9665[ 333]
+35000: data/episode_len    [   59]: avg:  85.2542, min:  46.0000[  59], max: 100.0000[   1]
+35000: data/stddev         [ 1028]: avg:   0.1000, min:   0.1000[  18], max:   0.1000[   4]
+35000: score/train_score   [   59]: avg:   0.3559, min:   0.0000[   1], max:   1.0000[   4]
+35000: train/actor_loss    [ 2500]: avg:  -0.5897, min:  -0.6487[1610], max:  -0.5303[ 414]
+35000: train/critic_loss   [ 2500]: avg:   0.0135, min:   0.0017[1898], max:   0.0341[2221]
+35000: train/critic_qt     [ 2500]: avg:   0.5647, min:   0.5124[ 175], max:   0.6057[1968]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          93.6 |  74.1 |
+| env step |  5000 |           7.8 |  12.4 |
+| add      |  5000 |           0.2 |   0.3 |
+| reset    |    59 |          39   |   0.7 |
+| act      |  1028 |          12.6 |   4.1 |
+| eval     |     1 |       26491.1 |   8.4 |
+| total(s) |     1 |         315.5 | 100   |
+total time: 0:43:38
+Mem info: used: 6.927 GB, avail: 126.493 GB, total: 156.060 GB
+Saved model to experiments/rl/metaworld/hyrl_boxclose_seed1_fullbc_200000/model0.pt
+saved?: True
+[40000] Time spent = 381.78 s
+40000: other/elapsed_time  : 354.94
+40000: other/episode       : 450
+40000: other/replay        : 500
+40000: other/speed         : 14.09
+40000: other/step          : 40000
+40000: other/train_step    : 19999
+40000: score/num_success   : 144
+40000: score/score         : 0.75
+40000: actor/anorm_bc      [ 1021]: avg:   1.3217, min:   0.5719[ 651], max:   1.8283[ 747]
+40000: actor/anorm_rl      [ 1021]: avg:   1.4148, min:   0.2418[ 384], max:   1.9784[ 759]
+40000: actor/bc_eval       [ 1131]: avg:   0.1406, min:   0.0000[   1], max:   1.0000[   2]
+40000: actor/bc_train      [ 1021]: avg:   0.1978, min:   0.0000[   1], max:   1.0000[  27]
+40000: actor/bootstrap_bc  [ 2500]: avg:   0.1137, min:   0.0469[ 280], max:   0.1953[ 885]
+40000: data/batch_R        [ 2500]: avg:   0.0097, min:   0.0000[  40], max:   0.0349[1458]
+40000: data/discount       [ 2500]: avg:   0.9372, min:   0.8907[1139], max:   0.9665[ 157]
+40000: data/episode_len    [   60]: avg:  82.8833, min:  47.0000[   2], max: 100.0000[   3]
+40000: data/stddev         [ 1021]: avg:   0.1000, min:   0.1000[   3], max:   0.1000[   8]
+40000: score/train_score   [   60]: avg:   0.4000, min:   0.0000[   3], max:   1.0000[   1]
+40000: train/actor_loss    [ 2500]: avg:  -0.6219, min:  -0.6751[2431], max:  -0.5530[ 145]
+40000: train/critic_loss   [ 2500]: avg:   0.0143, min:   0.0013[2307], max:   0.0385[2427]
+40000: train/critic_qt     [ 2500]: avg:   0.5954, min:   0.5470[ 145], max:   0.6384[2200]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          93.5 |  74   |
+| env step |  5000 |           7.8 |  12.4 |
+| add      |  5000 |           0.2 |   0.3 |
+| act      |  1021 |          13   |   4.2 |
+| reset    |    60 |          38.8 |   0.7 |
+| eval     |     1 |       26465.3 |   8.4 |
+| total(s) |     1 |         315.8 | 100   |
+total time: 0:50:00
+Mem info: used: 6.928 GB, avail: 128.155 GB, total: 156.060 GB
+saved?: False
+[45000] Time spent = 388.34 s
+45000: other/elapsed_time  : 358.36
+45000: other/episode       : 512
+45000: other/replay        : 500
+45000: other/speed         : 13.95
+45000: other/step          : 45000
+45000: other/train_step    : 22499
+45000: score/num_success   : 173
+45000: score/score         : 0.60
+45000: actor/anorm_bc      [ 1107]: avg:   1.3335, min:   0.5862[ 705], max:   1.8170[ 476]
+45000: actor/anorm_rl      [ 1107]: avg:   1.4748, min:   0.5055[ 923], max:   1.9878[ 956]
+45000: actor/bc_eval       [ 1333]: avg:   0.2768, min:   0.0000[   1], max:   1.0000[  16]
+45000: actor/bc_train      [ 1107]: avg:   0.2457, min:   0.0000[   1], max:   1.0000[  10]
+45000: actor/bootstrap_bc  [ 2500]: avg:   0.0893, min:   0.0352[1076], max:   0.1875[  74]
+45000: data/batch_R        [ 2500]: avg:   0.0097, min:   0.0000[   4], max:   0.0386[ 110]
+45000: data/discount       [ 2500]: avg:   0.9372, min:   0.8869[ 613], max:   0.9665[1845]
+45000: data/episode_len    [   62]: avg:  80.7419, min:  47.0000[  29], max: 100.0000[   2]
+45000: data/stddev         [ 1107]: avg:   0.1000, min:   0.1000[   6], max:   0.1000[   3]
+45000: score/train_score   [   62]: avg:   0.4677, min:   0.0000[   2], max:   1.0000[   1]
+45000: train/actor_loss    [ 2500]: avg:  -0.6403, min:  -0.6935[1903], max:  -0.5980[ 669]
+45000: train/critic_loss   [ 2500]: avg:   0.0150, min:   0.0015[  32], max:   0.0386[  77]
+45000: train/critic_qt     [ 2500]: avg:   0.6142, min:   0.5815[2278], max:   0.6440[1644]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          94.5 |  73   |
+| act      |  1107 |          13.1 |   4.5 |
+| env step |  5000 |           8   |  12.3 |
+| add      |  5000 |           0.2 |   0.3 |
+| reset    |    62 |          39.6 |   0.8 |
+| eval     |     1 |       29761.2 |   9.2 |
+| total(s) |     1 |         323.6 | 100   |
+total time: 0:56:28
+Mem info: used: 6.928 GB, avail: 128.035 GB, total: 156.060 GB
+saved?: False
+[50000] Time spent = 393.48 s
+50000: other/elapsed_time  : 354.06
+50000: other/episode       : 575
+50000: other/replay        : 500
+50000: other/speed         : 14.12
+50000: other/step          : 50000
+50000: other/train_step    : 24999
+50000: score/num_success   : 203
+50000: score/score         : 0.25
+50000: actor/anorm_bc      [ 1100]: avg:   1.3061, min:   0.5737[ 652], max:   1.8202[ 666]
+50000: actor/anorm_rl      [ 1100]: avg:   1.4566, min:   0.6482[ 178], max:   1.9302[ 777]
+50000: actor/bc_eval       [ 1834]: avg:   0.1118, min:   0.0000[   1], max:   1.0000[   5]
+50000: actor/bc_train      [ 1100]: avg:   0.1845, min:   0.0000[   1], max:   1.0000[   6]
+50000: actor/bootstrap_bc  [ 2500]: avg:   0.0728, min:   0.0234[2186], max:   0.1445[ 541]
+50000: data/batch_R        [ 2500]: avg:   0.0113, min:   0.0000[  21], max:   0.0462[2266]
+50000: data/discount       [ 2500]: avg:   0.9366, min:   0.8945[ 319], max:   0.9665[ 518]
+50000: data/episode_len    [   63]: avg:  78.8571, min:  44.0000[  31], max: 100.0000[   1]
+50000: data/stddev         [ 1100]: avg:   0.1000, min:   0.1000[  10], max:   0.1000[   7]
+50000: score/train_score   [   63]: avg:   0.4762, min:   0.0000[   1], max:   1.0000[   2]
+50000: train/actor_loss    [ 2500]: avg:  -0.6423, min:  -0.6822[ 253], max:  -0.5916[  76]
+50000: train/critic_loss   [ 2500]: avg:   0.0140, min:   0.0015[1725], max:   0.0378[1162]
+50000: train/critic_qt     [ 2500]: avg:   0.6166, min:   0.5798[ 339], max:   0.6475[2046]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          93.7 |  71.1 |
+| env step |  5000 |           7.7 |  11.7 |
+| add      |  5000 |           0.2 |   0.2 |
+| reset    |    63 |          41.9 |   0.8 |
+| act      |  1100 |          12.8 |   4.3 |
+| eval     |     1 |       39216.7 |  11.9 |
+| total(s) |     1 |         329.3 | 100   |
+total time: 1:03:02
+Mem info: used: 6.931 GB, avail: 127.856 GB, total: 156.060 GB
+Saved model to experiments/rl/metaworld/hyrl_boxclose_seed1_fullbc_200000/model0.pt
+saved?: True
+[55000] Time spent = 373.55 s
+55000: other/elapsed_time  : 352.99
+55000: other/episode       : 643
+55000: other/replay        : 500
+55000: other/speed         : 14.16
+55000: other/step          : 55000
+55000: other/train_step    : 27499
+55000: score/num_success   : 243
+55000: score/score         : 0.95
+55000: actor/anorm_bc      [ 1388]: avg:   1.3298, min:   0.5401[ 235], max:   1.8342[ 354]
+55000: actor/anorm_rl      [ 1388]: avg:   1.4456, min:   0.4547[ 953], max:   1.9993[  41]
+55000: actor/bc_eval       [  924]: avg:   0.1602, min:   0.0000[   1], max:   1.0000[   5]
+55000: actor/bc_train      [ 1388]: avg:   0.1974, min:   0.0000[   1], max:   1.0000[   9]
+55000: actor/bootstrap_bc  [ 2500]: avg:   0.0716, min:   0.0195[  46], max:   0.1406[1359]
+55000: data/batch_R        [ 2500]: avg:   0.0133, min:   0.0000[  58], max:   0.0427[1774]
+55000: data/discount       [ 2500]: avg:   0.9358, min:   0.8907[ 609], max:   0.9703[2367]
+55000: data/episode_len    [   68]: avg:  74.1618, min:  45.0000[  56], max: 100.0000[   1]
+55000: data/stddev         [ 1388]: avg:   0.1000, min:   0.1000[   3], max:   0.1000[   7]
+55000: score/train_score   [   68]: avg:   0.5882, min:   0.0000[   1], max:   1.0000[   2]
+55000: train/actor_loss    [ 2500]: avg:  -0.6641, min:  -0.7151[2490], max:  -0.6184[  84]
+55000: train/critic_loss   [ 2500]: avg:   0.0142, min:   0.0012[1951], max:   0.0388[ 700]
+55000: train/critic_qt     [ 2500]: avg:   0.6388, min:   0.5928[   9], max:   0.6743[2473]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          93.2 |  74.6 |
+| env step |  5000 |           7.6 |  12.2 |
+| add      |  5000 |           0.1 |   0.2 |
+| reset    |    68 |          37.8 |   0.8 |
+| act      |  1388 |          12.9 |   5.7 |
+| eval     |     1 |       20153.1 |   6.5 |
+| total(s) |     1 |         312.2 | 100   |
+total time: 1:09:15
+Mem info: used: 6.874 GB, avail: 128.066 GB, total: 156.060 GB
+saved?: False
+[60000] Time spent = 388.46 s
+60000: other/elapsed_time  : 350.32
+60000: other/episode       : 703
+60000: other/replay        : 500
+60000: other/speed         : 14.27
+60000: other/step          : 60000
+60000: other/train_step    : 29999
+60000: score/num_success   : 266
+60000: score/score         : 0.25
+60000: actor/anorm_bc      [  967]: avg:   1.3446, min:   0.5933[ 354], max:   1.8345[  36]
+60000: actor/anorm_rl      [  967]: avg:   1.4399, min:   0.4109[ 445], max:   1.9842[ 184]
+60000: actor/bc_eval       [ 1735]: avg:   0.0380, min:   0.0000[   1], max:   1.0000[ 113]
+60000: actor/bc_train      [  967]: avg:   0.2192, min:   0.0000[   1], max:   1.0000[   4]
+60000: actor/bootstrap_bc  [ 2500]: avg:   0.0683, min:   0.0156[1052], max:   0.1289[  35]
+60000: data/batch_R        [ 2500]: avg:   0.0150, min:   0.0000[  16], max:   0.0579[2343]
+60000: data/discount       [ 2500]: avg:   0.9352, min:   0.8945[ 946], max:   0.9665[ 741]
+60000: data/episode_len    [   60]: avg:  83.0667, min:  48.0000[   1], max: 100.0000[   3]
+60000: data/stddev         [  967]: avg:   0.1000, min:   0.1000[  78], max:   0.1000[   6]
+60000: score/train_score   [   60]: avg:   0.3833, min:   0.0000[   3], max:   1.0000[   1]
+60000: train/actor_loss    [ 2500]: avg:  -0.6847, min:  -0.7290[1251], max:  -0.6356[ 908]
+60000: train/critic_loss   [ 2500]: avg:   0.0147, min:   0.0010[1939], max:   0.0397[1715]
+60000: train/critic_qt     [ 2500]: avg:   0.6606, min:   0.6197[  83], max:   0.6913[1376]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          93.4 |  72   |
+| env step |  5000 |           7.6 |  11.6 |
+| add      |  5000 |           0.1 |   0.2 |
+| act      |   967 |          12.7 |   3.8 |
+| reset    |    60 |          37.8 |   0.7 |
+| eval     |     1 |       37919.6 |  11.7 |
+| total(s) |     1 |         324.3 | 100   |
+total time: 1:15:44
+Mem info: used: 6.935 GB, avail: 127.918 GB, total: 156.060 GB
+saved?: False
+[65000] Time spent = 386.65 s
+65000: other/elapsed_time  : 353.79
+65000: other/episode       : 769
+65000: other/replay        : 500
+65000: other/speed         : 14.13
+65000: other/step          : 65000
+65000: other/train_step    : 32499
+65000: score/num_success   : 302
+65000: score/score         : 0.45
+65000: actor/anorm_bc      [ 1060]: avg:   1.3478, min:   0.5802[ 857], max:   1.8318[ 548]
+65000: actor/anorm_rl      [ 1060]: avg:   1.4563, min:   0.3859[ 154], max:   1.8537[ 949]
+65000: actor/bc_eval       [ 1588]: avg:   0.0907, min:   0.0000[   1], max:   1.0000[  57]
+65000: actor/bc_train      [ 1060]: avg:   0.2311, min:   0.0000[   2], max:   1.0000[   1]
+65000: actor/bootstrap_bc  [ 2500]: avg:   0.0626, min:   0.0156[1609], max:   0.1172[ 136]
+65000: data/batch_R        [ 2500]: avg:   0.0157, min:   0.0000[  63], max:   0.0464[1537]
+65000: data/discount       [ 2500]: avg:   0.9343, min:   0.8869[ 118], max:   0.9665[1461]
+65000: data/episode_len    [   66]: avg:  75.8788, min:  47.0000[   6], max: 100.0000[   3]
+65000: data/stddev         [ 1060]: avg:   0.1000, min:   0.1000[  30], max:   0.1000[   2]
+65000: score/train_score   [   66]: avg:   0.5455, min:   0.0000[   3], max:   1.0000[   1]
+65000: train/actor_loss    [ 2500]: avg:  -0.6902, min:  -0.7396[1820], max:  -0.6486[ 393]
+65000: train/critic_loss   [ 2500]: avg:   0.0151, min:   0.0012[ 358], max:   0.0426[1868]
+65000: train/critic_qt     [ 2500]: avg:   0.6657, min:   0.6192[  96], max:   0.7057[1728]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          93.9 |  72.9 |
+| act      |  1060 |          12.5 |   4.1 |
+| env step |  5000 |           7.7 |  11.9 |
+| add      |  5000 |           0.1 |   0.2 |
+| reset    |    66 |          39.8 |   0.8 |
+| eval     |     1 |       32646.2 |  10.1 |
+| total(s) |     1 |         322.1 | 100   |
+total time: 1:22:10
+Mem info: used: 6.941 GB, avail: 127.787 GB, total: 156.060 GB
+saved?: False
+[70000] Time spent = 397.81 s
+70000: other/elapsed_time  : 360.77
+70000: other/episode       : 835
+70000: other/replay        : 500
+70000: other/speed         : 13.86
+70000: other/step          : 70000
+70000: other/train_step    : 34999
+70000: score/num_success   : 342
+70000: score/score         : 0.05
+70000: actor/anorm_bc      [ 1134]: avg:   1.3426, min:   0.5798[1090], max:   1.8266[ 821]
+70000: actor/anorm_rl      [ 1134]: avg:   1.4723, min:   0.9431[ 158], max:   2.0000[ 536]
+70000: actor/bc_eval       [ 1946]: avg:   0.0411, min:   0.0000[   1], max:   1.0000[ 260]
+70000: actor/bc_train      [ 1134]: avg:   0.2469, min:   0.0000[   1], max:   1.0000[  10]
+70000: actor/bootstrap_bc  [ 2500]: avg:   0.0576, min:   0.0078[1656], max:   0.1250[2044]
+70000: data/batch_R        [ 2500]: avg:   0.0173, min:   0.0000[  35], max:   0.0541[1434]
+70000: data/discount       [ 2500]: avg:   0.9341, min:   0.8869[1867], max:   0.9665[1890]
+70000: data/episode_len    [   66]: avg:  75.0455, min:  46.0000[  33], max: 100.0000[   4]
+70000: data/stddev         [ 1134]: avg:   0.1000, min:   0.1000[  70], max:   0.1000[   9]
+70000: score/train_score   [   66]: avg:   0.6061, min:   0.0000[   4], max:   1.0000[   1]
+70000: train/actor_loss    [ 2500]: avg:  -0.7029, min:  -0.7453[1907], max:  -0.6663[ 223]
+70000: train/critic_loss   [ 2500]: avg:   0.0145, min:   0.0011[2266], max:   0.0407[2329]
+70000: train/critic_qt     [ 2500]: avg:   0.6788, min:   0.6430[1497], max:   0.7073[2413]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          95.1 |  71.5 |
+| env step |  5000 |           8   |  12.1 |
+| add      |  5000 |           0.1 |   0.2 |
+| act      |  1134 |          12.5 |   4.3 |
+| reset    |    66 |          39.9 |   0.8 |
+| eval     |     1 |       36845.3 |  11.1 |
+| total(s) |     1 |         332.2 | 100   |
+total time: 1:28:48
+Mem info: used: 6.941 GB, avail: 127.806 GB, total: 156.060 GB
+saved?: False
+[75000] Time spent = 400.04 s
+75000: other/elapsed_time  : 364.90
+75000: other/episode       : 901
+75000: other/replay        : 500
+75000: other/speed         : 13.70
+75000: other/step          : 75000
+75000: other/train_step    : 37499
+75000: score/num_success   : 377
+75000: score/score         : 0.15
+75000: actor/anorm_bc      [ 1218]: avg:   1.3774, min:   0.5755[  49], max:   1.8413[ 546]
+75000: actor/anorm_rl      [ 1218]: avg:   1.4604, min:   0.7690[ 363], max:   1.9986[1143]
+75000: actor/bc_eval       [ 1852]: avg:   0.0594, min:   0.0000[   1], max:   1.0000[   9]
+75000: actor/bc_train      [ 1218]: avg:   0.2389, min:   0.0000[   1], max:   1.0000[   2]
+75000: actor/bootstrap_bc  [ 2500]: avg:   0.0562, min:   0.0117[1960], max:   0.1094[ 139]
+75000: data/batch_R        [ 2500]: avg:   0.0186, min:   0.0000[  46], max:   0.0541[1690]
+75000: data/discount       [ 2500]: avg:   0.9333, min:   0.8869[ 687], max:   0.9665[ 393]
+75000: data/episode_len    [   66]: avg:  76.6061, min:  47.0000[  35], max: 100.0000[   1]
+75000: data/stddev         [ 1218]: avg:   0.1000, min:   0.1000[  65], max:   0.1000[   3]
+75000: score/train_score   [   66]: avg:   0.5303, min:   0.0000[   1], max:   1.0000[   3]
+75000: train/actor_loss    [ 2500]: avg:  -0.7104, min:  -0.7494[ 701], max:  -0.6714[ 258]
+75000: train/critic_loss   [ 2500]: avg:   0.0141, min:   0.0008[  16], max:   0.0430[1320]
+75000: train/critic_qt     [ 2500]: avg:   0.6862, min:   0.6528[ 413], max:   0.7205[ 491]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          96.1 |  71.8 |
+| env step |  5000 |           8   |  11.9 |
+| add      |  5000 |           0.1 |   0.2 |
+| reset    |    66 |          41.1 |   0.8 |
+| act      |  1218 |          13.3 |   4.8 |
+| eval     |     1 |       34908.8 |  10.4 |
+| total(s) |     1 |         334.9 | 100   |
+total time: 1:35:28
+Mem info: used: 6.941 GB, avail: 127.800 GB, total: 156.060 GB
+saved?: False
+[80000] Time spent = 394.15 s
+80000: other/elapsed_time  : 361.50
+80000: other/episode       : 963
+80000: other/replay        : 500
+80000: other/speed         : 13.83
+80000: other/step          : 80000
+80000: other/train_step    : 39999
+80000: score/num_success   : 405
+80000: score/score         : 0.10
+80000: actor/anorm_bc      [  893]: avg:   1.3804, min:   0.5351[ 738], max:   1.8278[ 174]
+80000: actor/anorm_rl      [  893]: avg:   1.4754, min:   0.9022[ 760], max:   1.9705[ 889]
+80000: actor/bc_eval       [ 1917]: avg:   0.0736, min:   0.0000[   1], max:   1.0000[  97]
+80000: actor/bc_train      [  893]: avg:   0.2598, min:   0.0000[   1], max:   1.0000[   7]
+80000: actor/bootstrap_bc  [ 2500]: avg:   0.0566, min:   0.0156[ 191], max:   0.1172[2217]
+80000: data/batch_R        [ 2500]: avg:   0.0191, min:   0.0000[ 275], max:   0.0541[2445]
+80000: data/discount       [ 2500]: avg:   0.9331, min:   0.8907[  78], max:   0.9665[ 558]
+80000: data/episode_len    [   62]: avg:  79.3548, min:  46.0000[  34], max: 100.0000[   1]
+80000: data/stddev         [  893]: avg:   0.1000, min:   0.1000[  22], max:   0.1000[   1]
+80000: score/train_score   [   62]: avg:   0.4516, min:   0.0000[   1], max:   1.0000[   2]
+80000: train/actor_loss    [ 2500]: avg:  -0.7057, min:  -0.7441[ 321], max:  -0.6655[2051]
+80000: train/critic_loss   [ 2500]: avg:   0.0133, min:   0.0012[1576], max:   0.0400[1536]
+80000: train/critic_qt     [ 2500]: avg:   0.6820, min:   0.6476[2034], max:   0.7106[ 858]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          95.5 |  73.2 |
+| env step |  5000 |           8   |  12.3 |
+| add      |  5000 |           0.2 |   0.2 |
+| act      |   893 |          13.1 |   3.6 |
+| reset    |    62 |          39.7 |   0.8 |
+| eval     |     1 |       32408.3 |   9.9 |
+| total(s) |     1 |         326.3 | 100   |
+total time: 1:42:02
+Mem info: used: 6.941 GB, avail: 127.718 GB, total: 156.060 GB
+saved?: False
+[85000] Time spent = 393.53 s
+85000: other/elapsed_time  : 364.10
+85000: other/episode       : 1030
+85000: other/replay        : 500
+85000: other/speed         : 13.73
+85000: other/step          : 85000
+85000: other/train_step    : 42499
+85000: score/num_success   : 440
+85000: score/score         : 0.25
+85000: actor/anorm_bc      [  906]: avg:   1.3509, min:   0.5740[ 279], max:   1.8156[ 577]
+85000: actor/anorm_rl      [  906]: avg:   1.4438, min:   0.8317[ 440], max:   2.0000[ 595]
+85000: actor/bc_eval       [ 1784]: avg:   0.2517, min:   0.0000[   1], max:   1.0000[  18]
+85000: actor/bc_train      [  906]: avg:   0.2263, min:   0.0000[   1], max:   1.0000[   4]
+85000: actor/bootstrap_bc  [ 2500]: avg:   0.0528, min:   0.0078[ 362], max:   0.1055[ 305]
+85000: data/batch_R        [ 2500]: avg:   0.0194, min:   0.0000[  76], max:   0.0579[2072]
+85000: data/discount       [ 2500]: avg:   0.9329, min:   0.8793[1509], max:   0.9665[ 883]
+85000: data/episode_len    [   67]: avg:  75.7313, min:  46.0000[   7], max: 100.0000[   1]
+85000: data/stddev         [  906]: avg:   0.1000, min:   0.1000[   4], max:   0.1000[  10]
+85000: score/train_score   [   67]: avg:   0.5224, min:   0.0000[   1], max:   1.0000[   3]
+85000: train/actor_loss    [ 2500]: avg:  -0.7033, min:  -0.7455[1903], max:  -0.6575[1907]
+85000: train/critic_loss   [ 2500]: avg:   0.0129, min:   0.0010[2327], max:   0.0401[2226]
+85000: train/critic_qt     [ 2500]: avg:   0.6790, min:   0.6360[ 630], max:   0.7179[2280]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          95.9 |  73.6 |
+| env step |  5000 |           8.1 |  12.5 |
+| add      |  5000 |           0.1 |   0.2 |
+| reset    |    67 |          41.3 |   0.8 |
+| act      |   906 |          13.9 |   3.9 |
+| eval     |     1 |       29213.5 |   9   |
+| total(s) |     1 |         325.7 | 100   |
+total time: 1:48:36
+Mem info: used: 6.928 GB, avail: 127.167 GB, total: 156.060 GB
+saved?: False
+[90000] Time spent = 392.77 s
+90000: other/elapsed_time  : 358.39
+90000: other/episode       : 1102
+90000: other/replay        : 500
+90000: other/speed         : 13.95
+90000: other/step          : 90000
+90000: other/train_step    : 44999
+90000: score/num_success   : 487
+90000: score/score         : 0.05
+90000: actor/anorm_bc      [ 1266]: avg:   1.3717, min:   0.5300[1186], max:   1.8268[ 808]
+90000: actor/anorm_rl      [ 1266]: avg:   1.4481, min:   0.8047[1256], max:   1.9112[ 122]
+90000: actor/bc_eval       [ 1960]: avg:   0.2689, min:   0.0000[   1], max:   1.0000[  25]
+90000: actor/bc_train      [ 1266]: avg:   0.1912, min:   0.0000[   1], max:   1.0000[  10]
+90000: actor/bootstrap_bc  [ 2500]: avg:   0.0503, min:   0.0078[2011], max:   0.0938[  83]
+90000: data/batch_R        [ 2500]: avg:   0.0210, min:   0.0000[ 471], max:   0.0544[1722]
+90000: data/discount       [ 2500]: avg:   0.9319, min:   0.8869[2179], max:   0.9665[ 943]
+90000: data/episode_len    [   72]: avg:  69.0278, min:  46.0000[   8], max: 100.0000[   7]
+90000: data/stddev         [ 1266]: avg:   0.1000, min:   0.1000[  14], max:   0.1000[   8]
+90000: score/train_score   [   72]: avg:   0.6528, min:   0.0000[   7], max:   1.0000[   1]
+90000: train/actor_loss    [ 2500]: avg:  -0.7205, min:  -0.7584[1350], max:  -0.6774[ 148]
+90000: train/critic_loss   [ 2500]: avg:   0.0137, min:   0.0007[ 302], max:   0.0441[2179]
+90000: train/critic_qt     [ 2500]: avg:   0.6961, min:   0.6579[ 223], max:   0.7377[1337]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          94.3 |  71.8 |
+| act      |  1266 |          12.7 |   4.9 |
+| env step |  5000 |           7.8 |  11.8 |
+| add      |  5000 |           0.1 |   0.2 |
+| reset    |    72 |          40.5 |   0.9 |
+| eval     |     1 |       34158   |  10.4 |
+| total(s) |     1 |         328.5 | 100   |
+total time: 1:55:09
+Mem info: used: 6.928 GB, avail: 127.179 GB, total: 156.060 GB
+saved?: False
+[95000] Time spent = 395.51 s
+95000: other/elapsed_time  : 354.66
+95000: other/episode       : 1163
+95000: other/replay        : 500
+95000: other/speed         : 14.10
+95000: other/step          : 95000
+95000: other/train_step    : 47499
+95000: score/num_success   : 511
+95000: score/score         : 0.00
+95000: actor/anorm_bc      [  887]: avg:   1.3139, min:   0.5622[ 458], max:   1.8349[ 656]
+95000: actor/anorm_rl      [  887]: avg:   1.4330, min:   0.2987[  31], max:   1.9549[ 417]
+95000: actor/bc_eval       [ 2000]: avg:   0.1520, min:   0.0000[   1], max:   1.0000[  32]
+95000: actor/bc_train      [  887]: avg:   0.2086, min:   0.0000[   1], max:   1.0000[  22]
+95000: actor/bootstrap_bc  [ 2500]: avg:   0.0489, min:   0.0039[ 264], max:   0.0977[ 870]
+95000: data/batch_R        [ 2500]: avg:   0.0201, min:   0.0000[  53], max:   0.0579[1814]
+95000: data/discount       [ 2500]: avg:   0.9323, min:   0.8831[1280], max:   0.9665[ 461]
+95000: data/episode_len    [   61]: avg:  82.1475, min:  46.0000[   4], max: 100.0000[   1]
+95000: data/stddev         [  887]: avg:   0.1000, min:   0.1000[  33], max:   0.1000[   1]
+95000: score/train_score   [   61]: avg:   0.3934, min:   0.0000[   1], max:   1.0000[   4]
+95000: train/actor_loss    [ 2500]: avg:  -0.7185, min:  -0.7591[1595], max:  -0.6758[ 495]
+95000: train/critic_loss   [ 2500]: avg:   0.0138, min:   0.0008[1072], max:   0.0360[2286]
+95000: train/critic_qt     [ 2500]: avg:   0.6933, min:   0.6467[ 495], max:   0.7320[1491]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          93.7 |  71.4 |
+| act      |   887 |          12.5 |   3.4 |
+| env step |  5000 |           7.8 |  11.8 |
+| add      |  5000 |           0.1 |   0.2 |
+| reset    |    61 |          39.4 |   0.7 |
+| eval     |     1 |       40633.1 |  12.4 |
+| total(s) |     1 |         327.9 | 100   |
+total time: 2:01:44
+Mem info: used: 6.928 GB, avail: 127.126 GB, total: 156.060 GB
+saved?: False
+[100000] Time spent = 393.54 s
+100000: other/elapsed_time  : 352.25
+100000: other/episode       : 1228
+100000: other/replay        : 500
+100000: other/speed         : 14.19
+100000: other/step          : 100000
+100000: other/train_step    : 49999
+100000: score/num_success   : 543
+100000: score/score         : 0.10
+100000: actor/anorm_bc      [  952]: avg:   1.3906, min:   0.5332[ 417], max:   1.8293[ 546]
+100000: actor/anorm_rl      [  952]: avg:   1.4202, min:   0.4783[ 357], max:   1.8285[ 227]
+100000: actor/bc_eval       [ 1875]: avg:   0.2176, min:   0.0000[   1], max:   1.0000[   2]
+100000: actor/bc_train      [  952]: avg:   0.2300, min:   0.0000[   1], max:   1.0000[  18]
+100000: actor/bootstrap_bc  [ 2500]: avg:   0.0491, min:   0.0078[1330], max:   0.0977[1497]
+100000: data/batch_R        [ 2500]: avg:   0.0204, min:   0.0000[ 193], max:   0.0541[1695]
+100000: data/discount       [ 2500]: avg:   0.9321, min:   0.8831[1695], max:   0.9703[ 193]
+100000: data/episode_len    [   65]: avg:  76.5538, min:  45.0000[  31], max: 100.0000[   1]
+100000: data/stddev         [  952]: avg:   0.1000, min:   0.1000[  57], max:   0.1000[   3]
+100000: score/train_score   [   65]: avg:   0.4923, min:   0.0000[   1], max:   1.0000[   2]
+100000: train/actor_loss    [ 2500]: avg:  -0.7142, min:  -0.7511[2466], max:  -0.6729[ 805]
+100000: train/critic_loss   [ 2500]: avg:   0.0135, min:   0.0006[1891], max:   0.0354[1426]
+100000: train/critic_qt     [ 2500]: avg:   0.6894, min:   0.6563[ 830], max:   0.7195[2443]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          93.6 |  71.2 |
+| env step |  5000 |           7.6 |  11.5 |
+| add      |  5000 |           0.1 |   0.2 |
+| reset    |    65 |          39.4 |   0.8 |
+| act      |   952 |          13   |   3.8 |
+| eval     |     1 |       41080.3 |  12.5 |
+| total(s) |     1 |         328.5 | 100   |
+total time: 2:08:18
+Mem info: used: 6.928 GB, avail: 127.701 GB, total: 156.060 GB
+saved?: False
+[105000] Time spent = 392.26 s
+105000: other/elapsed_time  : 349.64
+105000: other/episode       : 1296
+105000: other/replay        : 500
+105000: other/speed         : 14.30
+105000: other/step          : 105000
+105000: other/train_step    : 52499
+105000: score/num_success   : 580
+105000: score/score         : 0.05
+105000: actor/anorm_bc      [ 1104]: avg:   1.3682, min:   0.5839[ 218], max:   1.8226[ 252]
+105000: actor/anorm_rl      [ 1104]: avg:   1.4509, min:   0.5665[1077], max:   2.0000[ 337]
+105000: actor/bc_eval       [ 1931]: avg:   0.1155, min:   0.0000[   1], max:   1.0000[   3]
+105000: actor/bc_train      [ 1104]: avg:   0.2101, min:   0.0000[   2], max:   1.0000[   1]
+105000: actor/bootstrap_bc  [ 2500]: avg:   0.0488, min:   0.0078[1341], max:   0.1016[1848]
+105000: data/batch_R        [ 2500]: avg:   0.0202, min:   0.0000[ 347], max:   0.0543[2280]
+105000: data/discount       [ 2500]: avg:   0.9320, min:   0.8907[ 426], max:   0.9665[ 553]
+105000: data/episode_len    [   68]: avg:  73.5441, min:  22.0000[  49], max: 100.0000[   1]
+105000: data/stddev         [ 1104]: avg:   0.1000, min:   0.1000[  14], max:   0.1000[  11]
+105000: score/train_score   [   68]: avg:   0.5441, min:   0.0000[   1], max:   1.0000[   2]
+105000: train/actor_loss    [ 2500]: avg:  -0.7306, min:  -0.7923[1282], max:  -0.6767[2449]
+105000: train/critic_loss   [ 2500]: avg:   0.0151, min:   0.0009[1954], max:   0.0444[1726]
+105000: train/critic_qt     [ 2500]: avg:   0.7044, min:   0.6607[2408], max:   0.7373[1438]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          92.6 |  70.5 |
+| env step |  5000 |           7.5 |  11.4 |
+| add      |  5000 |           0.1 |   0.2 |
+| reset    |    68 |          38.6 |   0.8 |
+| act      |  1104 |          12.4 |   4.2 |
+| eval     |     1 |       42399.2 |  12.9 |
+| total(s) |     1 |         328.6 | 100   |
+total time: 2:14:50
+Mem info: used: 6.928 GB, avail: 127.206 GB, total: 156.060 GB
+saved?: False
+[110000] Time spent = 395.87 s
+110000: other/elapsed_time  : 352.18
+110000: other/episode       : 1362
+110000: other/replay        : 500
+110000: other/speed         : 14.20
+110000: other/step          : 110000
+110000: other/train_step    : 54999
+110000: score/num_success   : 613
+110000: score/score         : 0.15
+110000: actor/anorm_bc      [ 1104]: avg:   1.2827, min:   0.5892[ 854], max:   1.8333[ 295]
+110000: actor/anorm_rl      [ 1104]: avg:   1.5115, min:   0.8022[ 598], max:   2.0000[ 405]
+110000: actor/bc_eval       [ 1937]: avg:   0.0976, min:   0.0000[   1], max:   1.0000[ 250]
+110000: actor/bc_train      [ 1104]: avg:   0.1540, min:   0.0000[   1], max:   1.0000[  18]
+110000: actor/bootstrap_bc  [ 2500]: avg:   0.0473, min:   0.0078[ 518], max:   0.1016[2336]
+110000: data/batch_R        [ 2500]: avg:   0.0202, min:   0.0000[ 344], max:   0.0582[1867]
+110000: data/discount       [ 2500]: avg:   0.9319, min:   0.8831[2067], max:   0.9627[ 608]
+110000: data/episode_len    [   66]: avg:  76.4848, min:  33.0000[  39], max: 100.0000[   1]
+110000: data/stddev         [ 1104]: avg:   0.1000, min:   0.1000[  30], max:   0.1000[   5]
+110000: score/train_score   [   66]: avg:   0.5000, min:   0.0000[   1], max:   1.0000[   3]
+110000: train/actor_loss    [ 2500]: avg:  -0.7233, min:  -0.7691[1138], max:  -0.6796[ 259]
+110000: train/critic_loss   [ 2500]: avg:   0.0140, min:   0.0008[1090], max:   0.0423[2241]
+110000: train/critic_qt     [ 2500]: avg:   0.6969, min:   0.6599[ 359], max:   0.7303[1130]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          93.2 |  70.1 |
+| env step |  5000 |           7.6 |  11.4 |
+| add      |  5000 |           0.1 |   0.2 |
+| reset    |    66 |          40   |   0.8 |
+| act      |  1104 |          13   |   4.3 |
+| eval     |     1 |       43467.2 |  13.1 |
+| total(s) |     1 |         332.3 | 100   |
+total time: 2:21:26
+Mem info: used: 6.940 GB, avail: 126.642 GB, total: 156.060 GB
+saved?: False
+[115000] Time spent = 382.14 s
+115000: other/elapsed_time  : 349.11
+115000: other/episode       : 1427
+115000: other/replay        : 500
+115000: other/speed         : 14.32
+115000: other/step          : 115000
+115000: other/train_step    : 57499
+115000: score/num_success   : 644
+115000: score/score         : 0.60
+115000: actor/anorm_bc      [  988]: avg:   1.3197, min:   0.5786[ 631], max:   1.8350[ 720]
+115000: actor/anorm_rl      [  988]: avg:   1.4675, min:   0.1788[ 841], max:   2.0000[ 869]
+115000: actor/bc_eval       [ 1382]: avg:   0.1346, min:   0.0000[   2], max:   1.0000[   1]
+115000: actor/bc_train      [  988]: avg:   0.1427, min:   0.0000[   1], max:   1.0000[  10]
+115000: actor/bootstrap_bc  [ 2500]: avg:   0.0494, min:   0.0078[ 464], max:   0.1055[1797]
+115000: data/batch_R        [ 2500]: avg:   0.0198, min:   0.0000[  99], max:   0.0543[2089]
+115000: data/discount       [ 2500]: avg:   0.9322, min:   0.8869[1420], max:   0.9627[ 110]
+115000: data/episode_len    [   65]: avg:  76.9538, min:  45.0000[   9], max: 100.0000[   1]
+115000: data/stddev         [  988]: avg:   0.1000, min:   0.1000[   6], max:   0.1000[   2]
+115000: score/train_score   [   65]: avg:   0.4769, min:   0.0000[   1], max:   1.0000[   3]
+115000: train/actor_loss    [ 2500]: avg:  -0.7073, min:  -0.7438[1654], max:  -0.6741[1306]
+115000: train/critic_loss   [ 2500]: avg:   0.0131, min:   0.0011[ 108], max:   0.0353[ 350]
+115000: train/critic_qt     [ 2500]: avg:   0.6826, min:   0.6503[ 912], max:   0.7158[1654]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          92.8 |  73.1 |
+| env step |  5000 |           7.4 |  11.7 |
+| add      |  5000 |           0.1 |   0.2 |
+| reset    |    65 |          38.4 |   0.8 |
+| act      |   988 |          12.3 |   3.8 |
+| eval     |     1 |       32798.3 |  10.3 |
+| total(s) |     1 |         317.3 | 100   |
+total time: 2:27:48
+Mem info: used: 6.928 GB, avail: 127.086 GB, total: 156.060 GB
+saved?: False
+[120000] Time spent = 401.40 s
+120000: other/elapsed_time  : 366.31
+120000: other/episode       : 1494
+120000: other/replay        : 500
+120000: other/speed         : 13.65
+120000: other/step          : 120000
+120000: other/train_step    : 59999
+120000: score/num_success   : 678
+120000: score/score         : 0.60
+120000: actor/anorm_bc      [ 1189]: avg:   1.3121, min:   0.5703[ 505], max:   1.8327[ 168]
+120000: actor/anorm_rl      [ 1189]: avg:   1.4427, min:   0.3073[1160], max:   1.9659[ 232]
+120000: actor/bc_eval       [ 1483]: avg:   0.0856, min:   0.0000[   1], max:   1.0000[  22]
+120000: actor/bc_train      [ 1189]: avg:   0.1463, min:   0.0000[   1], max:   1.0000[   6]
+120000: actor/bootstrap_bc  [ 2500]: avg:   0.0486, min:   0.0117[1390], max:   0.1055[1058]
+120000: data/batch_R        [ 2500]: avg:   0.0205, min:   0.0000[ 351], max:   0.0504[1634]
+120000: data/discount       [ 2500]: avg:   0.9317, min:   0.8869[ 229], max:   0.9703[ 351]
+120000: data/episode_len    [   67]: avg:  74.3582, min:  44.0000[  12], max: 100.0000[   2]
+120000: data/stddev         [ 1189]: avg:   0.1000, min:   0.1000[  25], max:   0.1000[   9]
+120000: score/train_score   [   67]: avg:   0.5075, min:   0.0000[   2], max:   1.0000[   1]
+120000: train/actor_loss    [ 2500]: avg:  -0.7164, min:  -0.7558[ 793], max:  -0.6734[ 333]
+120000: train/critic_loss   [ 2500]: avg:   0.0133, min:   0.0013[2139], max:   0.0366[1872]
+120000: train/critic_qt     [ 2500]: avg:   0.6917, min:   0.6538[ 105], max:   0.7254[ 941]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| train    |  2500 |          95.9 |  71.3 |
+| env step |  5000 |           8.4 |  12.5 |
+| add      |  5000 |           0.2 |   0.3 |
+| act      |  1189 |          13.5 |   4.8 |
+| reset    |    67 |          43.5 |   0.9 |
+| eval     |     1 |       34858.4 |  10.4 |
+| total(s) |     1 |         336.4 | 100   |
+total time: 2:34:29
+Mem info: used: 6.928 GB, avail: 127.124 GB, total: 156.060 GB
