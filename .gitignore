@@ -19,3 +19,6 @@ models/
 waypoint_test.pth
 model_resnet50.pth
 mode.pth
+6_26_mode_only_boxclose.pth
+box_new_resnet50.pth
+robosuite_mode_101.pth
