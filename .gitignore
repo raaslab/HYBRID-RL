@@ -22,3 +22,5 @@ mode.pth
 6_26_mode_only_boxclose.pth
 box_new_resnet50.pth
 robosuite_mode_101.pth
+mode_3train_1test/
+augmented_data/
