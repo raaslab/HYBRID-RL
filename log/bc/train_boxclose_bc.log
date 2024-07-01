@@ -1,0 +1,280 @@
+Raw Dataset size (#episode): 5
+Dataset size: 3 episodes, 177 steps
+average length 59.0
+obs shape: torch.Size([3, 96, 96])
+===config when the data was collected===
+{'action_repeat': 2,
+ 'camera_names': ['corner2'],
+ 'device': 'cuda',
+ 'end_on_success': True,
+ 'env_name': 'BoxClose',
+ 'env_reward_scale': 1.0,
+ 'episode_length': 100,
+ 'frame_stack': 1,
+ 'obs_stack': 1,
+ 'reward_shaping': False,
+ 'rl_camera': 'corner2',
+ 'rl_image_size': 96,
+ 'robots': ['Sawyer'],
+ 'use_state': True}
+========================================
+=================config=================
+batchsize: 256
+dataset:
+  action_repeat: 2
+  eval_episode_len: 100
+  frame_stack: 1
+  max_len: -1
+  mixup: 0
+  mixup_alpha: 0.1
+  num_data: 3
+  obs_stack: 1
+  path: data/metaworld/BoxClose_frame_stack_1_96x96_end_on_success/dataset.hdf5
+  rl_camera: corner2
+  use_state: 0
+ema: -1
+epoch_len: 10000
+grad_clip: 5
+load_model: none
+lr: 0.0001
+num_epoch: 2
+policy:
+  convnext:
+    num_filter: 96
+    num_stage: 4
+    shallow: 0
+  dropout: 0
+  feature_dim: 256
+  hidden_dim: 1024
+  net_type: resnet
+  orth_init: 1
+  proj_dim: 1024
+  resnet:
+    downsample: default
+    feat_mode: flat
+    norm_layer: gnn
+    out_norm: 0
+    shallow: 0
+    stem: patch
+  use_prop: 0
+  vit:
+    depth: 3
+    embed_dim: 128
+    feat_mode: flat
+    norm_proj: 1
+    norm_weight: 1
+    num_heads: 4
+    patch_size: 8
+    stride: -1
+    use_coord: 0
+rl_image_size: 96
+robot: Sawyer
+save_dir: exps/bc/metaworld/pathBoxClose_num_data3_num_epoch2_seed1
+seed: 1
+task_name: BoxClose
+use_wb: 1
+weight_decay: 0
+norm layer: gnn
+=============policy weights=============
+Policy(
+  (encoder): ResNetEncoder(
+    (nets): ResNet(
+      (init_downsample): Sequential(
+        (0): Conv2d(3, 64, kernel_size=(4, 4), stride=(4, 4), bias=False)
+        (1): GroupNorm(64, 64, eps=1e-05, affine=True)
+        (2): ReLU(inplace=True)
+      )
+      (layer1): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(64, 64, eps=1e-05, affine=True)
+          (relu): ReLU()
+          (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(64, 64, eps=1e-05, affine=True)
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(64, 64, eps=1e-05, affine=True)
+          (relu): ReLU()
+          (conv2): Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(64, 64, eps=1e-05, affine=True)
+        )
+      )
+      (layer2): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(64, 128, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(128, 128, eps=1e-05, affine=True)
+          (relu): ReLU()
+          (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(128, 128, eps=1e-05, affine=True)
+          (downsample): Sequential(
+            (0): Conv2d(64, 128, kernel_size=(1, 1), stride=(2, 2), bias=False)
+            (1): GroupNorm(128, 128, eps=1e-05, affine=True)
+          )
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(128, 128, eps=1e-05, affine=True)
+          (relu): ReLU()
+          (conv2): Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(128, 128, eps=1e-05, affine=True)
+        )
+      )
+      (layer3): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(128, 256, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(256, 256, eps=1e-05, affine=True)
+          (relu): ReLU()
+          (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(256, 256, eps=1e-05, affine=True)
+          (downsample): Sequential(
+            (0): Conv2d(128, 256, kernel_size=(1, 1), stride=(2, 2), bias=False)
+            (1): GroupNorm(256, 256, eps=1e-05, affine=True)
+          )
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(256, 256, eps=1e-05, affine=True)
+          (relu): ReLU()
+          (conv2): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(256, 256, eps=1e-05, affine=True)
+        )
+      )
+      (layer4): Sequential(
+        (0): BasicBlock(
+          (conv1): Conv2d(256, 512, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(512, 512, eps=1e-05, affine=True)
+          (relu): ReLU()
+          (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(512, 512, eps=1e-05, affine=True)
+          (downsample): Sequential(
+            (0): Conv2d(256, 512, kernel_size=(1, 1), stride=(2, 2), bias=False)
+            (1): GroupNorm(512, 512, eps=1e-05, affine=True)
+          )
+        )
+        (1): BasicBlock(
+          (conv1): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn1): GroupNorm(512, 512, eps=1e-05, affine=True)
+          (relu): ReLU()
+          (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+          (bn2): GroupNorm(512, 512, eps=1e-05, affine=True)
+        )
+      )
+    )
+  )
+  (policy): Sequential(
+    (0): Linear(in_features=4608, out_features=1024, bias=True)
+    (1): Dropout(p=0, inplace=False)
+    (2): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+    (3): ReLU(inplace=True)
+    (4): Linear(in_features=1024, out_features=1024, bias=True)
+    (5): Dropout(p=0, inplace=False)
+    (6): LayerNorm((1024,), eps=1e-05, elementwise_affine=True)
+    (7): ReLU(inplace=True)
+    (8): Linear(in_features=1024, out_features=4, bias=True)
+  )
+)
+| Module                                    |    #Params |      % |
+|-------------------------------------------+------------+--------|
+| encoder.nets.init_downsample.0.weight     |      3,072 |   0.02 |
+| encoder.nets.init_downsample.1.weight     |         64 |   0.00 |
+| encoder.nets.init_downsample.1.bias       |         64 |   0.00 |
+| encoder.nets.layer1.0.conv1.weight        |     36,864 |   0.22 |
+| encoder.nets.layer1.0.bn1.weight          |         64 |   0.00 |
+| encoder.nets.layer1.0.bn1.bias            |         64 |   0.00 |
+| encoder.nets.layer1.0.conv2.weight        |     36,864 |   0.22 |
+| encoder.nets.layer1.0.bn2.weight          |         64 |   0.00 |
+| encoder.nets.layer1.0.bn2.bias            |         64 |   0.00 |
+| encoder.nets.layer1.1.conv1.weight        |     36,864 |   0.22 |
+| encoder.nets.layer1.1.bn1.weight          |         64 |   0.00 |
+| encoder.nets.layer1.1.bn1.bias            |         64 |   0.00 |
+| encoder.nets.layer1.1.conv2.weight        |     36,864 |   0.22 |
+| encoder.nets.layer1.1.bn2.weight          |         64 |   0.00 |
+| encoder.nets.layer1.1.bn2.bias            |         64 |   0.00 |
+| encoder.nets.layer2.0.conv1.weight        |     73,728 |   0.44 |
+| encoder.nets.layer2.0.bn1.weight          |        128 |   0.00 |
+| encoder.nets.layer2.0.bn1.bias            |        128 |   0.00 |
+| encoder.nets.layer2.0.conv2.weight        |    147,456 |   0.87 |
+| encoder.nets.layer2.0.bn2.weight          |        128 |   0.00 |
+| encoder.nets.layer2.0.bn2.bias            |        128 |   0.00 |
+| encoder.nets.layer2.0.downsample.0.weight |      8,192 |   0.05 |
+| encoder.nets.layer2.0.downsample.1.weight |        128 |   0.00 |
+| encoder.nets.layer2.0.downsample.1.bias   |        128 |   0.00 |
+| encoder.nets.layer2.1.conv1.weight        |    147,456 |   0.87 |
+| encoder.nets.layer2.1.bn1.weight          |        128 |   0.00 |
+| encoder.nets.layer2.1.bn1.bias            |        128 |   0.00 |
+| encoder.nets.layer2.1.conv2.weight        |    147,456 |   0.87 |
+| encoder.nets.layer2.1.bn2.weight          |        128 |   0.00 |
+| encoder.nets.layer2.1.bn2.bias            |        128 |   0.00 |
+| encoder.nets.layer3.0.conv1.weight        |    294,912 |   1.74 |
+| encoder.nets.layer3.0.bn1.weight          |        256 |   0.00 |
+| encoder.nets.layer3.0.bn1.bias            |        256 |   0.00 |
+| encoder.nets.layer3.0.conv2.weight        |    589,824 |   3.48 |
+| encoder.nets.layer3.0.bn2.weight          |        256 |   0.00 |
+| encoder.nets.layer3.0.bn2.bias            |        256 |   0.00 |
+| encoder.nets.layer3.0.downsample.0.weight |     32,768 |   0.19 |
+| encoder.nets.layer3.0.downsample.1.weight |        256 |   0.00 |
+| encoder.nets.layer3.0.downsample.1.bias   |        256 |   0.00 |
+| encoder.nets.layer3.1.conv1.weight        |    589,824 |   3.48 |
+| encoder.nets.layer3.1.bn1.weight          |        256 |   0.00 |
+| encoder.nets.layer3.1.bn1.bias            |        256 |   0.00 |
+| encoder.nets.layer3.1.conv2.weight        |    589,824 |   3.48 |
+| encoder.nets.layer3.1.bn2.weight          |        256 |   0.00 |
+| encoder.nets.layer3.1.bn2.bias            |        256 |   0.00 |
+| encoder.nets.layer4.0.conv1.weight        |  1,179,648 |   6.96 |
+| encoder.nets.layer4.0.bn1.weight          |        512 |   0.00 |
+| encoder.nets.layer4.0.bn1.bias            |        512 |   0.00 |
+| encoder.nets.layer4.0.conv2.weight        |  2,359,296 |  13.92 |
+| encoder.nets.layer4.0.bn2.weight          |        512 |   0.00 |
+| encoder.nets.layer4.0.bn2.bias            |        512 |   0.00 |
+| encoder.nets.layer4.0.downsample.0.weight |    131,072 |   0.77 |
+| encoder.nets.layer4.0.downsample.1.weight |        512 |   0.00 |
+| encoder.nets.layer4.0.downsample.1.bias   |        512 |   0.00 |
+| encoder.nets.layer4.1.conv1.weight        |  2,359,296 |  13.92 |
+| encoder.nets.layer4.1.bn1.weight          |        512 |   0.00 |
+| encoder.nets.layer4.1.bn1.bias            |        512 |   0.00 |
+| encoder.nets.layer4.1.conv2.weight        |  2,359,296 |  13.92 |
+| encoder.nets.layer4.1.bn2.weight          |        512 |   0.00 |
+| encoder.nets.layer4.1.bn2.bias            |        512 |   0.00 |
+| policy.0.weight                           |  4,718,592 |  27.84 |
+| policy.0.bias                             |      1,024 |   0.01 |
+| policy.2.weight                           |      1,024 |   0.01 |
+| policy.2.bias                             |      1,024 |   0.01 |
+| policy.4.weight                           |  1,048,576 |   6.19 |
+| policy.4.bias                             |      1,024 |   0.01 |
+| policy.6.weight                           |      1,024 |   0.01 |
+| policy.6.bias                             |      1,024 |   0.01 |
+| policy.8.weight                           |      4,096 |   0.02 |
+| policy.8.bias                             |          4 |   0.00 |
+| Total                                     | 16,947,588 | 100.00 |
+Using Adam optimzer
+[0] Time spent = 525.48 s
+0: score        : 0.32
+0: score(best)  : 0.32
+0: speed        : 20.33
+0: grad_norm    [10000]: avg:   1.3319, min:   0.0320[8666], max:  64.9903[   1]
+0: loss         [10000]: avg:   0.1259, min:   0.0002[7522], max:   3.3441[   3]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| sample   | 10000 |           5.6 |  11   |
+| train    | 10000 |          43.5 |  84.9 |
+| eval     |     1 |       20890.6 |   4.1 |
+| total(s) |     1 |         512.4 | 100   |
+model saved!
+[1] Time spent = 508.62 s
+1: score        : 0.46
+1: score(best)  : 0.46
+1: speed        : 20.45
+1: grad_norm    [10000]: avg:   0.2911, min:   0.0102[8183], max:   9.8601[5314]
+1: loss         [10000]: avg:   0.0024, min:   0.0000[8030], max:   0.1420[4747]
+Timer Info:
+| name     |   num |   t/call (ms) |     % |
+|----------+-------+---------------+-------|
+| sample   | 10000 |           5.7 |  11.3 |
+| train    | 10000 |          43.1 |  84.9 |
+| eval     |     1 |       19646.6 |   3.9 |
+| total(s) |     1 |         508.3 | 100   |
+model saved!
+[2] Time spent = 19.47 s
+2: final_score  : 0.34
