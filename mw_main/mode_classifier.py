@@ -25,12 +25,12 @@ class SparseDenseDataset(Dataset):
             with h5py.File(hdf5_path, 'r') as file:
                 for demo_key in file['data'].keys():
                     demo_group = file['data'][demo_key]
-                    # images = demo_group['obs']['corner2_image'][:]
-                    images = demo_group['obs']['agentview_image'][:]
+                    images = demo_group['obs']['corner2_image'][:]
+                    # images = demo_group['obs']['agentview_image'][:]
                     images = images.transpose(0, 2, 3, 1)
                     self.images.append(images)
-                    # self.modes.append(demo_group['mode1'][:])
-                    self.modes.append(demo_group['mode'][:])
+                    self.modes.append(demo_group['mode1'][:])
+                    # self.modes.append(demo_group['mode'][:])
         self.images = np.concatenate(self.images, axis=0)
         self.modes = np.concatenate(self.modes, axis=0)
 
@@ -39,6 +39,11 @@ class SparseDenseDataset(Dataset):
 
     def __getitem__(self, idx):
         image = self.images[idx]
+
+        # Convert image to uint8 if it is in int64
+        if image.dtype == np.int64:
+            image = image.astype(np.uint8)
+        
         mode = self.modes[idx]
         if self.transform:
             image = self.transform(image)
@@ -124,6 +129,8 @@ def train_and_validate(model, train_loader, val_loader, device, num_epochs=100):
         all_metrics['f1'].append(f1)
         all_metrics['val_loss'].append(val_loss)
 
+        print(f"accuracy: {accuracy}")
+        print(f"val_loss: {val_loss}")
     return all_metrics, best_model_state
 
 
@@ -142,11 +149,11 @@ def plot_metrics(metrics):
     plt.show()
 
 def main():
-    # dataset_paths = ['/home/amisha/ibrl/release/data/metaworld/mw12/assembly_mw12.hdf5', 
-    #                  '/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_mw12.hdf5',
-    #                  '/home/amisha/ibrl/release/data/metaworld/mw12/stickpull_mw12.hdf5',
-    #                  '/home/amisha/ibrl/release/data/metaworld/mw12/coffeepush_mw12.hdf5']
-    dataset_paths = ['/home/amisha/ibrl/release/data/robomimic/square/processed_data96withmode.hdf5']
+    dataset_paths = ['/home/amisha/ibrl/augmented_data/assembly_mw12.hdf5',
+                     '/home/amisha/ibrl/augmented_data/boxclose_mw12.hdf5',
+                     '/home/amisha/ibrl/augmented_data/stickpull_mw12.hdf5',
+                     '/home/amisha/ibrl/augmented_data/coffeepush_mw12.hdf5']
+    # dataset_paths = ['/home/amisha/ibrl/release/data/robomimic/square/processed_data96withmode.hdf5']
     transform = get_transform()
     dataset = SparseDenseDataset(dataset_paths, transform=transform)
     kf = KFold(n_splits=5, shuffle=True, random_state=42)
@@ -172,16 +179,43 @@ def main():
             best_model_overall = best_model_state
 
     # Save the best model found across all folds
-    torch.save(best_model_overall, '6_26_mode_only_boxclose.pth')
+    torch.save(best_model_overall, model_name)
 
     # Average metrics across folds
     avg_metrics = {k: np.mean([m[k] for m in all_fold_metrics], axis=0) for k in all_fold_metrics[0]}
     plot_metrics(avg_metrics)
 
 
+def train3_test1():
+    train_dataset_paths = [
+        '/home/amisha/ibrl/augmented_data/coffeepush_mw12.hdf5',
+        '/home/amisha/ibrl/augmented_data/assembly_mw12.hdf5',
+        '/home/amisha/ibrl/augmented_data/boxclose_mw12.hdf5'
+    ]
+    test_dataset_path = '/home/amisha/ibrl/augmented_data/stickpull_mw12.hdf5'
+    
+    transform = get_transform()
+    
+    train_dataset = SparseDenseDataset(train_dataset_paths, transform=transform)
+    test_dataset = SparseDenseDataset([test_dataset_path], transform=transform)
+    
+    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
+    
+    model = HybridResNet().to(get_device())
+    
+    metrics, best_model_state = train_and_validate(model, train_loader, test_loader, get_device())
+    
+    # Save the best model
+    torch.save(best_model_state, model_name)
+    
+    # Plot metrics
+    plot_metrics(metrics)
 
 
+model_name = "mode_augumented.pth"
 
 
 if __name__ == '__main__':
+    # train3_test1()
     main()

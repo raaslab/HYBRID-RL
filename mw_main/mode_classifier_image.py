@@ -29,15 +29,15 @@ class SparseDenseDataset(Dataset):
             with h5py.File(hdf5_path, 'r') as file:
                 for demo_key in file['data'].keys():
                     demo_group = file['data'][demo_key]
-                    # images = demo_group['obs']['corner2_image'][:]
-                    images = demo_group['obs']['agentview_image'][:]
+                    images = demo_group['obs']['corner2_image'][:]
+                    # images = demo_group['obs']['agentview_image'][:]
                     images = images.transpose(0, 2, 3, 1)  # Change from [N, H, W, C] to [N, C, H, W]
                     self.images.append(images)
                     
                     
                     
                     # self.modes.append(demo_group['mode1'][:])
-                    self.modes.append(demo_group['mode'][:])
+                    self.modes.append(demo_group['mode1'][:])
         
         self.images = np.concatenate(self.images, axis=0)
 
@@ -49,6 +49,11 @@ class SparseDenseDataset(Dataset):
     def __getitem__(self, idx):
         image = self.images[idx]
 
+        # Convert image to uint8 if it is in int64
+        if image.dtype == np.int64:
+            image = image.astype(np.uint8)
+
+
         mode = self.modes[idx]
         
         if self.transform:
@@ -56,6 +61,10 @@ class SparseDenseDataset(Dataset):
         
                 
         return {'image': image, 'mode1': mode}
+
+
+
+
 
 
 def get_transform():
@@ -143,13 +152,14 @@ def validate(model, val_loader, device):
 
 
 def main():
-    device = get_device()
-    # dataset_paths = ['/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_mw12.hdf5']
-    dataset_paths = ['/home/amisha/ibrl/release/data/robomimic/square/processed_data96withmode.hdf5']
 
-                    #  '/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_mw12.hdf5',
-                    #  '/home/amisha/ibrl/release/data/metaworld/mw12/stickpull_mw12.hdf5',
-                    #  '/home/amisha/ibrl/release/data/metaworld/mw12/coffeepush_mw12.hdf5']
+    device = get_device()
+    # dataset_paths = 
+    dataset_paths = ['/home/amisha/ibrl/augmented_data/assembly_mw12.hdf5',
+                     '/home/amisha/ibrl/augmented_data/boxclose_mw12.hdf5',
+                     '/home/amisha/ibrl/augmented_data/stickpull_mw12.hdf5',
+                     '/home/amisha/ibrl/augmented_data/coffeepush_mw12.hdf5']
+                    # ['/home/amisha/ibrl/release/data/robomimic/square/processed_data96withmode.hdf5']
     transform = get_transform()
     dataset = SparseDenseDataset(dataset_paths, transform=transform)
     train_size = int(0.8 * len(dataset))
