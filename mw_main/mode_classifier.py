@@ -11,6 +11,7 @@ from tqdm import tqdm
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.model_selection import KFold
 import matplotlib.pyplot as plt
+import time 
 
 def get_device():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -24,10 +25,12 @@ class SparseDenseDataset(Dataset):
             with h5py.File(hdf5_path, 'r') as file:
                 for demo_key in file['data'].keys():
                     demo_group = file['data'][demo_key]
-                    images = demo_group['obs']['corner2_image'][:]
+                    # images = demo_group['obs']['corner2_image'][:]
+                    images = demo_group['obs']['agentview_image'][:]
                     images = images.transpose(0, 2, 3, 1)
                     self.images.append(images)
-                    self.modes.append(demo_group['mode1'][:])
+                    # self.modes.append(demo_group['mode1'][:])
+                    self.modes.append(demo_group['mode'][:])
         self.images = np.concatenate(self.images, axis=0)
         self.modes = np.concatenate(self.modes, axis=0)
 
@@ -70,11 +73,13 @@ class HybridResNet(nn.Module):
         outputs = self.classifier(img_features)
         return outputs
 
-def train_and_validate(model, train_loader, val_loader, device, num_epochs=50):
+def train_and_validate(model, train_loader, val_loader, device, num_epochs=100):
     criterion = CrossEntropyLoss()
     optimizer = Adam(model.parameters(), lr=0.001)
     model.train()
-    all_metrics = {'accuracy': [], 'precision': [], 'recall': [], 'f1': []}
+    all_metrics = {'accuracy': [], 'precision': [], 'recall': [], 'f1': [], 'val_loss': []}
+    min_val_loss = float('inf')
+    best_model_state = None
 
     for epoch in range(num_epochs):
         for data in tqdm(train_loader, desc=f'Epoch {epoch+1}/{num_epochs}'):
@@ -86,8 +91,9 @@ def train_and_validate(model, train_loader, val_loader, device, num_epochs=50):
             loss.backward()
             optimizer.step()
 
-        # Validation
+        # Validation phase
         model.eval()
+        val_loss = 0
         all_preds = []
         all_modes = []
         with torch.no_grad():
@@ -95,22 +101,32 @@ def train_and_validate(model, train_loader, val_loader, device, num_epochs=50):
                 images = data['image'].to(device)
                 modes = data['mode1'].to(device).long()
                 outputs = model(images)
+                batch_loss = criterion(outputs, modes)
+                val_loss += batch_loss.item() * data['image'].size(0)
                 _, preds = torch.max(outputs, 1)
                 all_preds.extend(preds.cpu().numpy())
                 all_modes.extend(modes.cpu().numpy())
+        val_loss /= len(val_loader.dataset)
 
+        # Track and save the best model
+        if val_loss < min_val_loss:
+            min_val_loss = val_loss
+            best_model_state = model.state_dict()  # Save the best model state
 
-                # Compute metrics
+        # Compute metrics
         accuracy = accuracy_score(all_modes, all_preds)
         precision = precision_score(all_modes, all_preds, average='macro', zero_division=0)
         recall = recall_score(all_modes, all_preds, average='macro', zero_division=0)
         f1 = f1_score(all_modes, all_preds, average='macro')
-
         all_metrics['accuracy'].append(accuracy)
         all_metrics['precision'].append(precision)
         all_metrics['recall'].append(recall)
         all_metrics['f1'].append(f1)
-    return all_metrics
+        all_metrics['val_loss'].append(val_loss)
+
+    return all_metrics, best_model_state
+
+
 
 def plot_metrics(metrics):
     epochs = list(range(1, len(metrics['accuracy']) + 1))
@@ -130,11 +146,13 @@ def main():
     #                  '/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_mw12.hdf5',
     #                  '/home/amisha/ibrl/release/data/metaworld/mw12/stickpull_mw12.hdf5',
     #                  '/home/amisha/ibrl/release/data/metaworld/mw12/coffeepush_mw12.hdf5']
-    dataset_paths = ['/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_mw12.hdf5']
+    dataset_paths = ['/home/amisha/ibrl/release/data/robomimic/square/processed_data96withmode.hdf5']
     transform = get_transform()
     dataset = SparseDenseDataset(dataset_paths, transform=transform)
     kf = KFold(n_splits=5, shuffle=True, random_state=42)
     all_fold_metrics = []
+    best_val_loss = float('inf')
+    best_model_overall = None
 
     for train_index, test_index in kf.split(dataset):
         train_dataset = torch.utils.data.Subset(dataset, train_index)
@@ -143,12 +161,27 @@ def main():
         val_loader = DataLoader(val_dataset, batch_size=8, shuffle=False)
 
         model = HybridResNet().to(get_device())
-        metrics = train_and_validate(model, train_loader, val_loader, get_device())
+        metrics, best_model_state = train_and_validate(model, train_loader, val_loader, get_device())
         all_fold_metrics.append(metrics)
+
+        # Check if the current fold produced a better model
+        current_fold_best_loss = min(metrics['val_loss'])
+        if current_fold_best_loss < best_val_loss:
+            print(f"New Best model: val_loss: {current_fold_best_loss}")
+            best_val_loss = current_fold_best_loss
+            best_model_overall = best_model_state
+
+    # Save the best model found across all folds
+    torch.save(best_model_overall, '6_26_mode_only_boxclose.pth')
 
     # Average metrics across folds
     avg_metrics = {k: np.mean([m[k] for m in all_fold_metrics], axis=0) for k in all_fold_metrics[0]}
     plot_metrics(avg_metrics)
+
+
+
+
+
 
 if __name__ == '__main__':
     main()

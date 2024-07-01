@@ -90,10 +90,12 @@ def plot_losses(train_losses):
     plt.show()
 
 def main():
-    filepaths = ['/home/amisha/ibrl/release/data/metaworld/mw12/assembly_part1.hdf5', 
-                     '/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_part1.hdf5',
-                     '/home/amisha/ibrl/release/data/metaworld/mw12/stickpull_part1.hdf5',
-                     '/home/amisha/ibrl/release/data/metaworld/mw12/coffeepush_part1.hdf5']
+    # filepaths = ['/home/amisha/ibrl/release/data/metaworld/mw12/assembly_part1.hdf5', 
+    #                  '/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_part1.hdf5',
+    #                  '/home/amisha/ibrl/release/data/metaworld/mw12/stickpull_part1.hdf5',
+    #                  '/home/amisha/ibrl/release/data/metaworld/mw12/coffeepush_part1.hdf5']
+
+    filepaths = ['/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_part1.hdf5']
 
     images, props, waypoints = load_data(filepaths)
     
@@ -119,7 +121,7 @@ def main():
     
     plot_losses(train_losses)  # Plot training losses after training
 
-    torch.save(model.state_dict(), 'waypoint_test.pth')
+    torch.save(model.state_dict(), 'waypoint_only_boxclose.pth')
     print("Model Saved!")
 
 if __name__ == '__main__':

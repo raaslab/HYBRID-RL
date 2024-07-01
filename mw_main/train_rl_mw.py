@@ -24,7 +24,7 @@ from waypoint_prediction import WaypointPredictor
 
 
 classifier_model = HybridResNet()
-classifier_model.load_state_dict(torch.load('models/mode_new_resnet50.pth', map_location=device))
+classifier_model.load_state_dict(torch.load('models/mode_only_boxclose.pth', map_location=device))
 classifier_model.to(device)
 classifier_model.eval()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -87,7 +87,7 @@ class MainConfig(common_utils.RunConfig):
     add_bc_loss: int = 0
     # log
     use_wb: int = 0
-    save_dir: str = f"experiments/rl/metaworld/test_boxclose"
+    save_dir: str = f"experiments/rl/metaworld/only_boxclose_data"
     # save_dir: str = "exps/rl/metaworld/our_seed1_fullbc_200k"
 
     def __post_init__(self):
@@ -140,7 +140,7 @@ class Workspace:
 
         # Waypoint Predictor Initialization
         self.waypoint_predictor = WaypointPredictor().cuda()
-        self.waypoint_predictor.load_state_dict(torch.load("models/waypoint_test.pth", map_location="cuda"))
+        self.waypoint_predictor.load_state_dict(torch.load("models/waypoint_only_boxclose.pth", map_location="cuda"))
         self.waypoint_predictor.eval()  # Set the model to evaluation mode
 
         assert not cfg.q_agent.use_prop, "not implemented"
@@ -273,10 +273,12 @@ class Workspace:
             mode_img = np.zeros((400,400))
             # object_pos = self.train_env.first_obs_pos
             mode = self.determine_mode(current_image)
+            # mode = "dense"
             # print(f"Determined Mode: {mode}")
             ### Act based on mode ###
             if mode == 'sparse':
                 # action= self.servoing(obs, object_pos)
+                # print("Hi i am sparse")
                 with torch.no_grad():
                     predicted_waypoint = self.waypoint_predictor(torch.tensor(current_image, dtype=torch.float32, device="cuda").unsqueeze(0),
                                          torch.tensor(current_prop[-1], dtype=torch.float32, device = "cuda").unsqueeze(0).unsqueeze(-1)).squeeze(0)

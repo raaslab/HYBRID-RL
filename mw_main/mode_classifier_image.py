@@ -29,13 +29,15 @@ class SparseDenseDataset(Dataset):
             with h5py.File(hdf5_path, 'r') as file:
                 for demo_key in file['data'].keys():
                     demo_group = file['data'][demo_key]
-                    images = demo_group['obs']['corner2_image'][:]
+                    # images = demo_group['obs']['corner2_image'][:]
+                    images = demo_group['obs']['agentview_image'][:]
                     images = images.transpose(0, 2, 3, 1)  # Change from [N, H, W, C] to [N, C, H, W]
                     self.images.append(images)
                     
                     
                     
-                    self.modes.append(demo_group['mode1'][:])
+                    # self.modes.append(demo_group['mode1'][:])
+                    self.modes.append(demo_group['mode'][:])
         
         self.images = np.concatenate(self.images, axis=0)
 
@@ -68,7 +70,7 @@ def get_transform():
 
 
 class HybridResNet(nn.Module):
-    def __init__(self, model_type='resnet50'):  # Add model_type parameter
+    def __init__(self, model_type='resnet101'):  # Add model_type parameter
         super(HybridResNet, self).__init__()
         if model_type == 'resnet50':
             base_model = resnet50(pretrained=True)
@@ -118,7 +120,7 @@ def train(model, train_loader, val_loader, device, num_epochs=50):
         # Save model if validation loss improved
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            torch.save(model.state_dict(), 'mode_new_resnet50.pth')
+            torch.save(model.state_dict(), 'robosuite_mode_101.pth')
             print(f'Model saved: Epoch {epoch+1}, Validation Loss: {val_loss}')
 
 def validate(model, val_loader, device):
@@ -142,10 +144,12 @@ def validate(model, val_loader, device):
 
 def main():
     device = get_device()
-    dataset_paths = ['/home/amisha/ibrl/release/data/metaworld/mw12/assembly_mw12.hdf5', 
-                     '/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_mw12.hdf5',
-                     '/home/amisha/ibrl/release/data/metaworld/mw12/stickpull_mw12.hdf5',
-                     '/home/amisha/ibrl/release/data/metaworld/mw12/coffeepush_mw12.hdf5']
+    # dataset_paths = ['/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_mw12.hdf5']
+    dataset_paths = ['/home/amisha/ibrl/release/data/robomimic/square/processed_data96withmode.hdf5']
+
+                    #  '/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_mw12.hdf5',
+                    #  '/home/amisha/ibrl/release/data/metaworld/mw12/stickpull_mw12.hdf5',
+                    #  '/home/amisha/ibrl/release/data/metaworld/mw12/coffeepush_mw12.hdf5']
     transform = get_transform()
     dataset = SparseDenseDataset(dataset_paths, transform=transform)
     train_size = int(0.8 * len(dataset))

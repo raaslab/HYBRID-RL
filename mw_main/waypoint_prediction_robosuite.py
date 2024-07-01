@@ -17,18 +17,18 @@ def load_data(filepaths):
             for i in range(len(file['data'].keys())):  # Adjust based on the number of demonstrations in each dataset
                 demo_key = f'data/demo_{i}'
                 # --- Metaworld environment dataset ---
-                inputs_images.append(file[demo_key + '/obs/corner2_image'][:])
-                inputs_props.append(file[demo_key + '/obs/prop'][:])
-                inputs_props.append(file[demo_key + '/obs/prop'][:])
-                waypoint_labels.append(file[demo_key + '/waypoint1'][:])  # Use the dedicated waypoint key
+                # inputs_images.append(file[demo_key + '/obs/corner2_image'][:])
+                # inputs_props.append(file[demo_key + '/obs/prop'][:])
+                # inputs_props.append(file[demo_key + '/obs/prop'][:])
+                # waypoint_labels.append(file[demo_key + '/waypoint1'][:])  # Use the dedicated waypoint key
 
-                # # --- Robosuite environment dataset ---
-                # inputs_images.append(file[demo_key + '/obs/agentview_image'][:])
-                # pose = file[demo_key + '/obs/robot0_eef_pos'][:]
-                # quat = file[demo_key + '/obs/robot0_eef_quat'][:]
-                # prop = np.concatenate([pose, quat], axis=1)
-                # inputs_props.append(prop)
-                # waypoint_labels.append(file[demo_key + '/actions'][:])  # Use the dedicated waypoint key
+                # --- Robosuite environment dataset ---
+                inputs_images.append(file[demo_key + '/obs/agentview_image'][:])
+                pose = file[demo_key + '/obs/robot0_eef_pos'][:]
+                quat = file[demo_key + '/obs/robot0_eef_quat'][:]
+                prop = np.concatenate([pose, quat], axis=1)
+                inputs_props.append(prop)
+                waypoint_labels.append(file[demo_key + '/actions'][:])  # Use the dedicated waypoint key
 
     inputs_images = np.concatenate(inputs_images, axis=0)
     inputs_props = np.concatenate(inputs_props, axis=0)
@@ -50,8 +50,8 @@ class WaypointPredictor(nn.Module):
         )
         conv_output_size = self._get_conv_output_size(input_channels, input_height, input_width)
         self.fc_layers = nn.Sequential(
-            nn.Linear(32 * 24 * 24 + 1, 120),         # Metaworld
-            # nn.Linear(conv_output_size+7, 120),        # Robosuite
+            # nn.Linear(32 * 24 * 24 + 1, 120),         # Metaworld
+            nn.Linear(conv_output_size+7, 120),        # Robosuite
             nn.ReLU(),  
             nn.Linear(120, 60),
             nn.ReLU(),
@@ -84,8 +84,8 @@ def train_model(model, train_loader, criterion, optimizer, epochs=20):
         running_loss = 0.0
         for images, props, labels in train_loader:
             optimizer.zero_grad()
-            outputs = model(images, props[:, -1].unsqueeze(1))
-            # outputs = model(images, props)
+            # outputs = model(images, props[:, -1].unsqueeze(1))
+            outputs = model(images, props)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -98,8 +98,8 @@ def test_model(model, test_loader, criterion):
     total_loss = 0.0
     with torch.no_grad():
         for images, props, labels in test_loader:
-            outputs = model(images, props[:, -1].unsqueeze(1))
-            # outputs = model(images, props)
+            # outputs = model(images, props[:, -1].unsqueeze(1))
+            outputs = model(images, props)
             loss = criterion(outputs, labels)
             total_loss += loss.item() * images.size(0)
     avg_loss = total_loss / len(test_loader.dataset)
