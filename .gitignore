@@ -24,3 +24,7 @@ box_new_resnet50.pth
 robosuite_mode_101.pth
 mode_3train_1test/
 augmented_data/
+mode_models/
+waypoint_models/
+mode_augumented_efficientNet.pth
+augumented_modes/

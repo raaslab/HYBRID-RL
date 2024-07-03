@@ -6,6 +6,8 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt  # Import matplotlib for plotting
+import argparse
+
 
 # Load the data from multiple datasets
 def load_data(filepaths):
@@ -17,9 +19,13 @@ def load_data(filepaths):
         with h5py.File(filepath, 'r') as file:
             for i in range(5):  # Adjust based on the number of demonstrations in each dataset
                 demo_key = f'data/demo_{i}'
-                inputs_images.append(file[demo_key + '/obs/corner2_image'][:])
-                inputs_props.append(file[demo_key + '/obs/prop'][:])
-                waypoint_labels.append(file[demo_key + '/waypoint1'][:])  # Use the dedicated waypoint key
+                mode = file[demo_key + '/mode1'][:]
+                # Get the index where the sparse mode ends
+                ind = np.where(mode == 1)[0][0]
+                print(f"{demo_key} sparse length: {ind}")
+                inputs_images.append(file[demo_key + '/obs/corner2_image'][:ind])
+                inputs_props.append(file[demo_key + '/obs/prop'][:ind])
+                waypoint_labels.append(file[demo_key + '/waypoint1'][:ind])  # Use the dedicated waypoint key
 
     inputs_images = np.concatenate(inputs_images, axis=0)
     inputs_props = np.concatenate(inputs_props, axis=0)
@@ -52,7 +58,7 @@ class WaypointPredictor(nn.Module):
         combined = torch.cat((img, prop), dim=1)
         return self.fc_layers(combined)
     
-def train_model(model, train_loader, criterion, optimizer, epochs=20):
+def train_model(model, train_loader, criterion, optimizer, epochs=80):
     model.train()
     train_losses = []
     for epoch in range(epochs):
@@ -87,15 +93,21 @@ def plot_losses(train_losses):
     plt.ylabel('MSE Loss')
     plt.title('Training Loss Per Epoch')
     plt.legend()
-    plt.show()
+    plt.savefig(f"{model_name}.png")  # Save the plot to a file
+    # plt.show()
 
-def main():
-    # filepaths = ['/home/amisha/ibrl/release/data/metaworld/mw12/assembly_part1.hdf5', 
-    #                  '/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_part1.hdf5',
-    #                  '/home/amisha/ibrl/release/data/metaworld/mw12/stickpull_part1.hdf5',
-    #                  '/home/amisha/ibrl/release/data/metaworld/mw12/coffeepush_part1.hdf5']
+def main(args):
+    dataset_paths = {
+        'coffeepush': '/home/amisha/ibrl/augmented_data/coffeepush_mw12.hdf5',
+        'assembly': '/home/amisha/ibrl/augmented_data/assembly_mw12.hdf5',
+        'boxclose': '/home/amisha/ibrl/augmented_data/boxclose_mw12.hdf5',
+        'stickpull': '/home/amisha/ibrl/augmented_data/stickpull_mw12.hdf5'
+    }
 
-    filepaths = ['/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_part1.hdf5']
+    # filepaths = ['/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_part1.hdf5']
+    filepaths = [dataset_paths[name] for name in args.datasets if name in dataset_paths]
+    print("Using Datasets: ", filepaths)
+    print("Saving model name: ", model_name)
 
     images, props, waypoints = load_data(filepaths)
     
@@ -121,8 +133,17 @@ def main():
     
     plot_losses(train_losses)  # Plot training losses after training
 
-    torch.save(model.state_dict(), 'waypoint_only_boxclose.pth')
+
+
+    torch.save(model.state_dict(), f"{model_name}.pth")
     print("Model Saved!")
 
 if __name__ == '__main__':
-    main()
+
+    parser = argparse.ArgumentParser(description="Train a model on specified datasets")
+    parser.add_argument('--datasets', nargs='+', type=str, choices=['coffeepush', 'assembly', 'boxclose', 'stickpull'], help='Names of datasets to use')
+    args = parser.parse_args()
+    global model_name
+    model_name = "waypoint_" + "_".join(args.datasets)
+    main(args)
+    

@@ -29,6 +29,11 @@ DATASETS = {
     "StickPull": "release/data/metaworld/StickPull_frame_stack_1_96x96_end_on_success/dataset.hdf5",
     "CoffeePush": "release/data/metaworld/CoffeePush_frame_stack_1_96x96_end_on_success/dataset.hdf5",
 }
+    # 'CoffeePush': '/home/amisha/ibrl/augmented_data/coffeepush/coffeepush_mw12.hdf5',
+    # 'Assembly': '/home/amisha/ibrl/augmented_data/assembly/assembly_mw12.hdf5',
+    # 'BoxClose': '/home/amisha/ibrl/augmented_data/boxclose/boxclose_mw12.hdf5',
+    # 'StickPull': '/home/amisha/ibrl/augmented_data/stickpull/stickpull_mw12.hdf5'
+
 for k, v in DATASETS.items():
     DATASETS[k] = os.path.join(root, v)
 
@@ -184,7 +189,7 @@ class MetaWorldDataset:
 class MainConfig(common_utils.RunConfig):
     dataset: DatasetConfig = field(default_factory=lambda: DatasetConfig(""))
     policy: BcPolicyConfig = field(default_factory=lambda: BcPolicyConfig())
-    seed: int = 1
+    seed: int = 2
     load_model: str = "none"
     # training
     num_epoch: int = 2
@@ -200,7 +205,7 @@ class MainConfig(common_utils.RunConfig):
     rl_image_size: int = -1
     # log
     use_wb: int = 0
-    save_dir: str = "exps/bc/metaworld/bc_stickpull"
+    save_dir: str = ""
 
 
 def run(cfg: MainConfig, policy):
@@ -298,7 +303,7 @@ def run(cfg: MainConfig, policy):
     # final eval
     best_model = saver.get_best_model()
     policy.load_state_dict(torch.load(best_model))
-    scores = run_eval(dataset.env, policy, num_game=50, seed=1, verbose=False)
+    scores = run_eval(dataset.env, policy, num_game=50, seed=2, verbose=False)
     stat["final_score"].append(np.mean(scores))
     stat.summary(cfg.num_epoch)
 
@@ -345,6 +350,13 @@ if __name__ == "__main__":
 
     rich.traceback.install()
     cfg = pyrallis.parse(config_class=MainConfig)  # type: ignore
+
+
+    # Initialize dataset and determine task_name to add to save dir
+    dataset = MetaWorldDataset(cfg.dataset)
+    cfg.task_name = dataset.task_name
+    cfg.save_dir = f"exps/bc/metaworld/augmented_data_seed_{cfg.seed}_{cfg.task_name}"
+
 
     common_utils.set_all_seeds(cfg.seed)
     log_path = os.path.join(cfg.save_dir, "train.log")

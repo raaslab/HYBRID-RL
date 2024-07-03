@@ -12,7 +12,16 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from sklearn.model_selection import KFold
 import matplotlib.pyplot as plt
 import time 
+import cv2
+import argparse
 
+
+
+# import sys
+# sys.path.append('/home/amisha/.local/lib/python3.7/site-packages/efficientnet_pytorch')
+# from efficientnet_pytorch import EfficientNet
+from torchvision.transforms import RandomHorizontalFlip, ColorJitter, RandomRotation
+from torch.optim.lr_scheduler import StepLR
 def get_device():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -49,6 +58,17 @@ class SparseDenseDataset(Dataset):
             image = self.transform(image)
         return {'image': image, 'mode1': mode}
 
+def get_advanced_transform():
+    return transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize((224, 224)),  # Adjust size for EfficientNet
+        RandomHorizontalFlip(),
+        ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+        RandomRotation(20),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+
 def get_transform():
     return transforms.Compose([
         transforms.ToPILImage(),
@@ -56,6 +76,24 @@ def get_transform():
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
+
+# class EfficientHybridNet(nn.Module):
+#     def __init__(self):
+#         super(EfficientHybridNet, self).__init__()
+#         self.base_model = EfficientNet.from_pretrained('efficientnet-b0')
+#         self.pooling = nn.AdaptiveAvgPool2d(1)
+#         self.classifier = nn.Sequential(
+#             nn.Linear(1280, 512),  # EfficientNet-b0 feature size
+#             nn.ReLU(),
+#             nn.Dropout(0.5),
+#             nn.Linear(512, 2)
+#         )
+
+#     def forward(self, x):
+#         x = self.base_model.extract_features(x)
+#         x = self.pooling(x).view(x.size(0), -1)
+#         x = self.classifier(x)
+#         return x
 
 class HybridResNet(nn.Module):
     def __init__(self, model_type='resnet50'):
@@ -78,6 +116,41 @@ class HybridResNet(nn.Module):
         outputs = self.classifier(img_features)
         return outputs
 
+class EnhancedHybridResNet(nn.Module):
+    def __init__(self, model_type='resnet50'):
+        super(EnhancedHybridResNet, self).__init__()
+        if model_type == 'resnet50':
+            base_model = resnet50(pretrained=True)
+            num_features = 2048
+        elif model_type == 'resnet101':
+            base_model = resnet101(pretrained=True)
+            num_features = 2048
+        else:
+            base_model = resnet18(pretrained=True)
+            num_features = 512
+        self.features = nn.Sequential(*list(base_model.children())[:-1])
+        
+        # Enhanced MLP
+        self.classifier = nn.Sequential(
+            nn.Linear(num_features, 1024),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(512, 2)  # Assuming binary classification
+        )
+
+    def forward(self, images):
+        img_features = self.features(images)
+        img_features = img_features.view(img_features.size(0), -1)
+        outputs = self.classifier(img_features)
+        return outputs
+
+# def train_and_validate(model, train_loader, val_loader, device, num_epochs=100):
+#     criterion = CrossEntropyLoss()
+#     optimizer = Adam(model.parameters(), lr=0.001)
+#     scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
 def train_and_validate(model, train_loader, val_loader, device, num_epochs=100):
     criterion = CrossEntropyLoss()
     optimizer = Adam(model.parameters(), lr=0.001)
@@ -95,7 +168,7 @@ def train_and_validate(model, train_loader, val_loader, device, num_epochs=100):
             loss = criterion(outputs, modes)
             loss.backward()
             optimizer.step()
-
+        # scheduler.step()
         # Validation phase
         model.eval()
         val_loss = 0
@@ -144,21 +217,30 @@ def plot_metrics(metrics):
     plt.plot(epochs, metrics['f1'], label='F1 Score')
     plt.xlabel('Epoch')
     plt.ylabel('Metrics')
-    plt.title('Performance Metrics')
+    plt.title(model_name)
     plt.legend()
-    plt.show()
+    plt.savefig(f"mode_{model_name}.png")  # Save the plot to a file
+    # plt.show()
 
-def main():
-    dataset_paths = ['/home/amisha/ibrl/augmented_data/assembly_mw12.hdf5',
-                     '/home/amisha/ibrl/augmented_data/boxclose_mw12.hdf5',
-                     '/home/amisha/ibrl/augmented_data/stickpull_mw12.hdf5',
-                     '/home/amisha/ibrl/augmented_data/coffeepush_mw12.hdf5']
+def main(args):
+    dataset_paths = {
+        'coffeepush': '/home/amisha/ibrl/augmented_data/coffeepush_mw12.hdf5',
+        'assembly': '/home/amisha/ibrl/augmented_data/assembly_mw12.hdf5',
+        'boxclose': '/home/amisha/ibrl/augmented_data/boxclose_mw12.hdf5',
+        'stickpull': '/home/amisha/ibrl/augmented_data/stickpull_mw12.hdf5'
+    }
+    
+    paths = [dataset_paths[name] for name in args.datasets if name in dataset_paths]
+    print("Using Datasets: ", paths)
+    print("Saving model name: ", model_name)
     # dataset_paths = ['/home/amisha/ibrl/release/data/robomimic/square/processed_data96withmode.hdf5']
     transform = get_transform()
-    dataset = SparseDenseDataset(dataset_paths, transform=transform)
+    # transform=get_advanced_transform()
+    dataset = SparseDenseDataset(paths, transform=transform)
     kf = KFold(n_splits=5, shuffle=True, random_state=42)
     all_fold_metrics = []
     best_val_loss = float('inf')
+    best_acc = 0.0
     best_model_overall = None
 
     for train_index, test_index in kf.split(dataset):
@@ -168,18 +250,26 @@ def main():
         val_loader = DataLoader(val_dataset, batch_size=8, shuffle=False)
 
         model = HybridResNet().to(get_device())
+        # model = EnhancedHybridResNet().to(get_device())
+        # model = EfficientHybridNet().to(get_device())
         metrics, best_model_state = train_and_validate(model, train_loader, val_loader, get_device())
         all_fold_metrics.append(metrics)
 
         # Check if the current fold produced a better model
         current_fold_best_loss = min(metrics['val_loss'])
         if current_fold_best_loss < best_val_loss:
-            print(f"New Best model: val_loss: {current_fold_best_loss}")
+            best_acc = metrics['accuracy'][metrics['val_loss'].index(current_fold_best_loss)]
+            print(f"New Best model: val_loss: {current_fold_best_loss}; Accuracy: {best_acc}")
             best_val_loss = current_fold_best_loss
             best_model_overall = best_model_state
 
+    # Write the final validation loss to a log file
+    log_file_path = f"{model_name}.txt"
+    with open(log_file_path, "w") as log_file:
+        log_file.write(f"New Best model: val_loss: {best_val_loss};  Accuracy: {best_acc}")
+
     # Save the best model found across all folds
-    torch.save(best_model_overall, model_name)
+    torch.save(best_model_overall, f"{model_name}.pth")
 
     # Average metrics across folds
     avg_metrics = {k: np.mean([m[k] for m in all_fold_metrics], axis=0) for k in all_fold_metrics[0]}
@@ -203,7 +293,8 @@ def train3_test1():
     test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
     
     model = HybridResNet().to(get_device())
-    
+    # model = EnhancedHybridResNet().to(get_device())
+    # model = EfficientHybridNet().to(get_device())
     metrics, best_model_state = train_and_validate(model, train_loader, test_loader, get_device())
     
     # Save the best model
@@ -213,9 +304,14 @@ def train3_test1():
     plot_metrics(metrics)
 
 
-model_name = "mode_augumented.pth"
+# model_name = "mode_augumented_efficientNet.pth"
 
 
 if __name__ == '__main__':
     # train3_test1()
-    main()
+    parser = argparse.ArgumentParser(description="Train a model on specified datasets")
+    parser.add_argument('--datasets', nargs='+', type=str, choices=['coffeepush', 'assembly', 'boxclose', 'stickpull'], help='Names of datasets to use')
+    args = parser.parse_args()
+    global model_name
+    model_name = "mode_" + "_".join(args.datasets)
+    main(args)

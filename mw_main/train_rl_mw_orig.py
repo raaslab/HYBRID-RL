@@ -19,10 +19,10 @@ from eval_mw import run_eval
 
 
 BC_POLICIES = {
-    "assembly": "release/model/metaworld/pathAssembly_num_data3_num_epoch2_seed1/model1.pt",
-    "boxclose": "release/model/metaworld/pathBoxClose_num_data3_num_epoch2_seed1/model1.pt",
-    "coffeepush": "release/model/metaworld/pathCoffeePush_num_data3_num_epoch2_seed1/model1.pt",
-    "stickpull": "release/model/metaworld/pathStickPull_num_data3_num_epoch2_seed1/model1.pt",
+    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/augmented_data_seed_2_Assembly/model1.pt",
+    "boxclose": "/home/amisha/ibrl/exps/bc/metaworld/augmented_data_seed_2_BoxClose/model1.pt",
+    "coffeepush": "/home/amisha/ibrl/exps/bc/metaworld/augmented_data_seed_2_CoffeePush/model1.pt",
+    "stickpull": "/home/amisha/ibrl/exps/bc/metaworld/augmented_data_seed_2_StickPull/model1.pt",
 }
 
 BC_DATASETS = {
@@ -35,7 +35,7 @@ BC_DATASETS = {
 
 @dataclass
 class MainConfig(common_utils.RunConfig):
-    seed: int = 1
+    seed: int = 2
     # env
     episode_length: int = 200
     # agent
@@ -67,12 +67,16 @@ class MainConfig(common_utils.RunConfig):
     add_bc_loss: int = 0
     # log
     use_wb: int = 0
-    save_dir: str = "exps/rl/metaworld/ibrl_seed1_200k"
+    save_dir: str = ""
 
     def __post_init__(self):
         self.preload_datapath = self.bc_policy
         if self.preload_datapath in BC_DATASETS:
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
+            dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
+
+        self.save_dir = f"exps/rl/metaworld/ibrl/ibrl_seed{self.seed}_{dataset_name}"
+        self.preload_datapath = BC_DATASETS.get(self.bc_policy, "")
 
     @property
     def stddev_schedule(self):
