@@ -28,3 +28,8 @@ mode_models/
 waypoint_models/
 mode_augumented_efficientNet.pth
 augumented_modes/
+mode_models_augmented/
+mode_models_jul_03/
+mw12/
+utilfiles/
+

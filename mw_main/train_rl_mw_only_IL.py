@@ -19,8 +19,7 @@ from eval_mw import run_eval
 import cv2
 import torch.nn as nn
 from torchvision import models
-# from mask import SegmentedHybridResNet
-from mode_classifier_image import HybridResNet,device
+from mode_classifier_image import HybridResNet
 from waypoint import WaypointPredictor
 
 
@@ -34,9 +33,9 @@ def predict_waypoint(model, corner2_image, prop):
     return waypoint.numpy().flatten()
 
 BC_POLICIES = {
-    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_Assembly/model1.pt",
+    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_2_Assembly/model1.pt",
     "boxclose": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_BoxClose/model1.pt",
-    "coffeepush": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_1_CoffeePush/model1.pt",
+    "coffeepush": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_CoffeePush/model1.pt",
     "stickpull": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_StickPull/model1.pt",
 }
 
@@ -50,9 +49,9 @@ BC_DATASETS = {
     
 @dataclass
 class MainConfig(common_utils.RunConfig):
-    seed: int = 1
+    seed: int = 2
     # Sparse control parameters
-    Kp = 11
+    Kp = 3.5
     # env
     episode_length: int = 200
     # agent
@@ -76,7 +75,7 @@ class MainConfig(common_utils.RunConfig):
     # others
     num_train_step: int = 60000
     log_per_step: int = 5000
-    num_warm_up_episode: int = 50
+    num_warm_up_episode: int = 1
     num_eval_episode: int = 10
     # rft
     pretrain_num_epoch: int = 0
@@ -92,7 +91,7 @@ class MainConfig(common_utils.RunConfig):
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
             dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
 
-        self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_seed_{self.seed}_{dataset_name}_kp11"
+        self.save_dir = f"exps/rl/metaworld/IL/IL_seed{self.seed}_{dataset_name}"
 
 
 
@@ -107,10 +106,10 @@ class Workspace:
         self.work_dir = cfg.save_dir
         print(f"workspace: {self.work_dir}")
 
-        # # Create a video window
-        self.window_name = 'Metaworld Environment'
-        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(self.window_name, 600, 600) 
+        # Create a video window
+        # self.window_name = 'Metaworld Environment'
+        # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        # cv2.resizeWindow(self.window_name, 600, 600) 
 
         common_utils.set_all_seeds(cfg.seed)
         sys.stdout = common_utils.Logger(cfg.log_path, print_to_stdout=True)
@@ -149,19 +148,9 @@ class Workspace:
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.classifier_model = HybridResNet()
-        mode_path ="/home/amisha/ibrl/mode_all.pth"
-        # mode_path = f"mode_models_augmented/mode_{dataset_name}.pth"
+        mode_path="/home/amisha/ibrl/mode_models_jul_03/mode_assembly.pth"
+        # mode_path = f"mode_models/mode_{dataset_name}.pth"
         print(f"Using mode_model_path: {mode_path}")
-        # model_state_dict = torch.load(mode_path, map_location=device)
-        # new_state_dict = {k: v for k, v in model_state_dict.items() if 'state_processor' not in k and 'classifier.weight' not in k}
-        # self.classifier_model.load_state_dict(new_state_dict, strict=False)
-
-        # # Manually handle the classifier weights if needed
-        # if 'classifier.weight' in model_state_dict:
-        #     with torch.no_grad():
-        #         self.classifier_model.classifier.weight[:,:] = model_state_dict['classifier.weight'][:,:2048]  # Adjust as necessary
-        #         self.classifier_model.classifier.bias[:] = model_state_dict['classifier.bias']
-
         self.classifier_model.load_state_dict(torch.load(mode_path, map_location=device))
         self.classifier_model.to(device)
         self.classifier_model.eval()
@@ -250,14 +239,14 @@ class Workspace:
             if self.bc_policy is not None:
                 with torch.no_grad(), utils.eval_mode(self.bc_policy):
                     action = self.bc_policy.act(obs, eval_mode=True)
-            else:
-                if self.cfg.pretrain_num_epoch > 0:
-                    # the policy has been pretrained
-                    with torch.no_grad(), utils.eval_mode(self.agent):
-                        action = self.agent.act(obs, eval_mode=True)
-                else:
-                    action = torch.zeros(self.train_env.action_dim)
-                    action = action.uniform_(-1.0, 1.0)
+            # else:
+            #     if self.cfg.pretrain_num_epoch > 0:
+            #         # the policy has been pretrained
+            #         with torch.no_grad(), utils.eval_mode(self.agent):
+            #             action = self.agent.act(obs, eval_mode=True)
+            #     else:
+            #         action = torch.zeros(self.train_env.action_dim)
+            #         action = action.uniform_(-1.0, 1.0)
 
             obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
             reply = {"action": action}
@@ -289,8 +278,6 @@ class Workspace:
         self.warm_up()
         self.num_success = self.replay.num_success
         stopwatch = common_utils.Stopwatch()
-        # moving_to_waypoint = False
-        # current_waypoint = None
 
         obs, image_obs = self.train_env.reset()
         self.replay.new_episode(obs)
@@ -306,50 +293,40 @@ class Workspace:
             # print(f"Determined Mode: {mode}")
             ### Act based on mode ###
             if mode == 'sparse':
-                # if not moving_to_waypoint:
-                    # Only predict new waypoint if we're not already moving to one
+                # action= self.servoing(obs, object_pos)
                 with torch.no_grad():
-                    predicted_waypoint = self.waypoint_predictor(
-                        torch.tensor(current_image, dtype=torch.float32, device="cuda").unsqueeze(0),
-                        torch.tensor(current_prop[-1], dtype=torch.float32, device="cuda").unsqueeze(0).unsqueeze(-1)
-                    ).squeeze(0)  # Keep it as a GPU tensor
-                    # current_waypoint = predicted_waypoint
-                    # moving_to_waypoint = True
-
-                action = self.servoing(obs, predicted_waypoint)
+                    predicted_waypoint = self.waypoint_predictor(torch.tensor(current_image, dtype=torch.float32, device="cuda").unsqueeze(0),
+                                         torch.tensor(current_prop[-1], dtype=torch.float32, device = "cuda").unsqueeze(0).unsqueeze(-1)).squeeze(0)
+                action= self.servoing(obs, predicted_waypoint)
                 mode = self.determine_mode(current_image)
-                # # Check if waypoint is reached
-                # if self.waypoint_reached(obs['prop'][:3], current_waypoint):
-                #     moving_to_waypoint = False
-                #     mode = 'dense' 
-                # print(f"Waypoint Reached Status: {self.waypoint_reached(obs['prop'][:3], current_waypoint)} ")
             ### act ###
             if mode == 'dense':
-                with stopwatch.time("act"), torch.no_grad(), utils.eval_mode(self.agent):
-                    stddev = utils.schedule(self.cfg.stddev_schedule, self.global_step)
-                    action = self.agent.act(obs, stddev=stddev, eval_mode=False)
-                    stat["data/stddev"].append(stddev)
+                with torch.no_grad(), utils.eval_mode(self.bc_policy):
+                    action = self.bc_policy.act(obs, eval_mode=True)
+                # with stopwatch.time("act"), torch.no_grad(), utils.eval_mode(self.agent):
+                #     stddev = utils.schedule(self.cfg.stddev_schedule, self.global_step)
+                #     action = self.agent.act(obs, stddev=stddev, eval_mode=False)
+                #     stat["data/stddev"].append(stddev)
                 # print(f"Dense Mode Action: {action}")
             with stopwatch.time("env step"):
                 obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
-                # # ----> Render the environment <----
-                try:
-                    img = self.train_env.env.env.render(mode='rgb_array')
-
-                    mode_img = cv2.putText(mode_img, str(reward), (mode_img.shape[1]//2 - 50, mode_img.shape[0]//2-50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2, cv2.LINE_AA)
-                    mode_img = cv2.putText(mode_img, mode, (mode_img.shape[1]//2 - 80, mode_img.shape[0]//2), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2, cv2.LINE_AA)
-                    if mode=="sparse":
-                        mode_img = cv2.putText(mode_img, f"X: {predicted_waypoint[0]}", 
-                                               (50, mode_img.shape[0]//2+50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
-                        mode_img = cv2.putText(mode_img, f"Y: {predicted_waypoint[1]}", 
-                                               (50, mode_img.shape[0]//2+80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
-                        mode_img = cv2.putText(mode_img, f"Z: {predicted_waypoint[2]}", 
-                                               (50, mode_img.shape[0]//2+110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)                       
-                    cv2.imshow(self.window_name,  cv2.cvtColor(img, cv2.COLOR_BGR2RGB))                    
-                    cv2.imshow("Mode",  mode_img)                    
-                    cv2.waitKey(1)
-                except Exception as e:
-                    print(f"Error rendering image: {e}")   
+                # ----> Render the environment <----
+                # try:
+                #     img = self.train_env.env.env.render(mode='rgb_array')
+                #     mode_img = cv2.putText(mode_img, str(reward), (mode_img.shape[1]//2 - 50, mode_img.shape[0]//2-50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2, cv2.LINE_AA)
+                #     mode_img = cv2.putText(mode_img, mode, (mode_img.shape[1]//2 - 80, mode_img.shape[0]//2), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2, cv2.LINE_AA)
+                #     if mode=="sparse":
+                #         mode_img = cv2.putText(mode_img, f"X: {predicted_waypoint[0]}", 
+                #                                (50, mode_img.shape[0]//2+50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
+                #         mode_img = cv2.putText(mode_img, f"Y: {predicted_waypoint[1]}", 
+                #                                (50, mode_img.shape[0]//2+80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
+                #         mode_img = cv2.putText(mode_img, f"Z: {predicted_waypoint[2]}", 
+                #                                (50, mode_img.shape[0]//2+110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)                       
+                #     cv2.imshow(self.window_name,  cv2.cvtColor(img, cv2.COLOR_BGR2RGB))                    
+                #     cv2.imshow("Mode",  mode_img)                    
+                #     cv2.waitKey(1)
+                # except Exception as e:
+                #     print(f"Error rendering image: {e}")   
 
 
             with stopwatch.time("add"):
@@ -378,10 +355,10 @@ class Workspace:
                 self.log_and_save(stopwatch, stat, saver)
 
             ### train ###
-            if self.global_step % self.cfg.update_freq == 0:
-                with stopwatch.time("train"):
-                    self.rl_train(stat)
-                    self.train_step += 1
+            # if self.global_step % self.cfg.update_freq == 0:
+            #     with stopwatch.time("train"):
+            #         self.rl_train(stat)
+            #         self.train_step += 1
 
         # cv2.destroyAllWindows()
 
@@ -396,46 +373,46 @@ class Workspace:
         stat["other/elapsed_time"].append(elapsed_time)
         stat["other/episode"].append(self.global_episode)
         stat["other/step"].append(self.global_step)
-        stat["other/train_step"].append(self.train_step)
-        stat["other/replay"].append(self.replay.size())
+        # stat["other/train_step"].append(self.train_step)
+        # stat["other/replay"].append(self.replay.size())
         stat["score/num_success"].append(self.replay.num_success)
 
         with stopwatch.time("eval"):
             eval_score = self.eval(seed=self.global_step, policy=self.agent)
             stat["score/score"].append(eval_score)
 
-        saved = saver.save(self.agent.state_dict(), eval_score, save_latest=True)
-        print(f"saved?: {saved}")
+        # saved = saver.save(self.agent.state_dict(), eval_score, save_latest=True)
+        # print(f"saved?: {saved}")
 
         stat.summary(self.global_step, reset=True)
         stopwatch.summary(reset=True)
         print("total time:", common_utils.sec2str(stopwatch.total_time))
         print(common_utils.get_mem_usage())
 
-    def rl_train(self, stat: common_utils.MultiCounter):
-        stddev = utils.schedule(self.cfg.stddev_schedule, self.global_step)
-        for i in range(self.cfg.num_critic_update):
-            if self.cfg.mix_rl_rate < 1:
-                rl_bsize = int(self.cfg.batch_size * self.cfg.mix_rl_rate)
-                bc_bsize = self.cfg.batch_size - rl_bsize
-                batch = self.replay.sample_rl_bc(rl_bsize, bc_bsize, "cuda:0")
-            else:
-                batch = self.replay.sample(self.cfg.batch_size, "cuda:0")
+    # def rl_train(self, stat: common_utils.MultiCounter):
+    #     stddev = utils.schedule(self.cfg.stddev_schedule, self.global_step)
+    #     for i in range(self.cfg.num_critic_update):
+    #         if self.cfg.mix_rl_rate < 1:
+    #             rl_bsize = int(self.cfg.batch_size * self.cfg.mix_rl_rate)
+    #             bc_bsize = self.cfg.batch_size - rl_bsize
+    #             batch = self.replay.sample_rl_bc(rl_bsize, bc_bsize, "cuda:0")
+    #         else:
+    #             batch = self.replay.sample(self.cfg.batch_size, "cuda:0")
 
-            update_actor = i == self.cfg.num_critic_update - 1
+    #         update_actor = i == self.cfg.num_critic_update - 1
 
-            if update_actor and self.cfg.add_bc_loss:
-                bc_batch = self.replay.sample_bc(self.cfg.batch_size, "cuda:0")
-            else:
-                bc_batch = None
+    #         if update_actor and self.cfg.add_bc_loss:
+    #             bc_batch = self.replay.sample_bc(self.cfg.batch_size, "cuda:0")
+    #         else:
+    #             bc_batch = None
 
-            if self.cfg.add_bc_loss:
-                metrics = self.agent.update(batch, stddev, update_actor, bc_batch, self.ref_agent)
-            else:
-                metrics = self.agent.update(batch, stddev, update_actor)
+    #         if self.cfg.add_bc_loss:
+    #             metrics = self.agent.update(batch, stddev, update_actor, bc_batch, self.ref_agent)
+    #         else:
+    #             metrics = self.agent.update(batch, stddev, update_actor)
 
-            stat.append(metrics)
-            stat["data/discount"].append(batch.bootstrap.mean().item())
+    #         stat.append(metrics)
+    #         stat["data/discount"].append(batch.bootstrap.mean().item())
 
     def pretrain_policy(self):
         stat = common_utils.MultiCounter(
@@ -474,22 +451,7 @@ class Workspace:
     #         return 'dense'
 
 
-    def waypoint_reached(self, current_position, waypoint, threshold=0.035):
-        """
-        Check if the current position is close enough to the waypoint.
-        
-        Args:
-        current_position (np.array or torch.Tensor): Current position of the end-effector
-        waypoint (torch.Tensor): Target waypoint (on GPU)
-        threshold (float): Distance threshold to consider waypoint as reached
-        
-        Returns:
-        bool: True if waypoint is reached, False otherwise
-        """
-        if isinstance(current_position, np.ndarray):
-            current_position = torch.from_numpy(current_position).to(waypoint.device)
-        distance = torch.norm(current_position - waypoint).item()
-        return distance < threshold
+
 
 
 

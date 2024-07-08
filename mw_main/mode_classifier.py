@@ -96,7 +96,7 @@ def get_transform():
 #         return x
 
 class HybridResNet(nn.Module):
-    def __init__(self, model_type='resnet50'):
+    def __init__(self, model_type='resnet101'):
         super(HybridResNet, self).__init__()
         if model_type == 'resnet50':
             base_model = resnet50(pretrained=True)
@@ -154,12 +154,13 @@ class EnhancedHybridResNet(nn.Module):
 def train_and_validate(model, train_loader, val_loader, device, num_epochs=100):
     criterion = CrossEntropyLoss()
     optimizer = Adam(model.parameters(), lr=0.001)
-    model.train()
-    all_metrics = {'accuracy': [], 'precision': [], 'recall': [], 'f1': [], 'val_loss': []}
-    min_val_loss = float('inf')
+    scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
+    best_val_loss = float('inf')
     best_model_state = None
 
     for epoch in range(num_epochs):
+        model.train()
+        total_loss = 0
         for data in tqdm(train_loader, desc=f'Epoch {epoch+1}/{num_epochs}'):
             images = data['image'].to(device)
             modes = data['mode1'].to(device).long()
@@ -168,43 +169,87 @@ def train_and_validate(model, train_loader, val_loader, device, num_epochs=100):
             loss = criterion(outputs, modes)
             loss.backward()
             optimizer.step()
-        # scheduler.step()
-        # Validation phase
-        model.eval()
-        val_loss = 0
-        all_preds = []
-        all_modes = []
-        with torch.no_grad():
-            for data in val_loader:
-                images = data['image'].to(device)
-                modes = data['mode1'].to(device).long()
-                outputs = model(images)
-                batch_loss = criterion(outputs, modes)
-                val_loss += batch_loss.item() * data['image'].size(0)
-                _, preds = torch.max(outputs, 1)
-                all_preds.extend(preds.cpu().numpy())
-                all_modes.extend(modes.cpu().numpy())
-        val_loss /= len(val_loader.dataset)
+            total_loss += loss.item()
 
-        # Track and save the best model
-        if val_loss < min_val_loss:
-            min_val_loss = val_loss
-            best_model_state = model.state_dict()  # Save the best model state
+        scheduler.step()
+        val_loss = validate(model, val_loader, device)
 
-        # Compute metrics
-        accuracy = accuracy_score(all_modes, all_preds)
-        precision = precision_score(all_modes, all_preds, average='macro', zero_division=0)
-        recall = recall_score(all_modes, all_preds, average='macro', zero_division=0)
-        f1 = f1_score(all_modes, all_preds, average='macro')
-        all_metrics['accuracy'].append(accuracy)
-        all_metrics['precision'].append(precision)
-        all_metrics['recall'].append(recall)
-        all_metrics['f1'].append(f1)
-        all_metrics['val_loss'].append(val_loss)
+        # Save the model if the validation loss is the lowest
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_model_state = model.state_dict()
+            torch.save(model.state_dict(), 'best_model.pth')
+            print(f"Epoch {epoch+1}: New best model saved with validation loss {val_loss}")
 
-        print(f"accuracy: {accuracy}")
-        print(f"val_loss: {val_loss}")
-    return all_metrics, best_model_state
+    return best_model_state
+
+def validate(model, val_loader, device):
+    model.eval()
+    total_loss = 0.0
+    criterion = CrossEntropyLoss()
+    with torch.no_grad():
+        for data in val_loader:
+            images = data['image'].to(device)
+            modes = data['mode1'].to(device).long()
+            outputs = model(images)
+            loss = criterion(outputs, modes)
+            total_loss += loss.item()
+    return total_loss / len(val_loader)
+
+# def train_and_validate(model, train_loader, val_loader, device, num_epochs=100):
+#     criterion = CrossEntropyLoss()
+#     optimizer = Adam(model.parameters(), lr=0.001)
+#     model.train()
+#     all_metrics = {'accuracy': [], 'precision': [], 'recall': [], 'f1': [], 'val_loss': []}
+#     min_val_loss = float('inf')
+#     best_model_state = None
+
+#     for epoch in range(num_epochs):
+#         for data in tqdm(train_loader, desc=f'Epoch {epoch+1}/{num_epochs}'):
+#             images = data['image'].to(device)
+#             modes = data['mode1'].to(device).long()
+#             optimizer.zero_grad()
+#             outputs = model(images)
+#             loss = criterion(outputs, modes)
+#             loss.backward()
+#             optimizer.step()
+#         # scheduler.step()
+#         # Validation phase
+#         model.eval()
+#         val_loss = 0
+#         all_preds = []
+#         all_modes = []
+#         with torch.no_grad():
+#             for data in val_loader:
+#                 images = data['image'].to(device)
+#                 modes = data['mode1'].to(device).long()
+#                 outputs = model(images)
+#                 batch_loss = criterion(outputs, modes)
+#                 val_loss += batch_loss.item() * data['image'].size(0)
+#                 _, preds = torch.max(outputs, 1)
+#                 all_preds.extend(preds.cpu().numpy())
+#                 all_modes.extend(modes.cpu().numpy())
+#         val_loss /= len(val_loader.dataset)
+
+#         # Track and save the best model
+#         if val_loss < min_val_loss:
+#             min_val_loss = val_loss
+#             best_model_state = model.state_dict()  # Save the best model state
+
+#         # Compute metrics
+#         accuracy = accuracy_score(all_modes, all_preds)
+#         precision = precision_score(all_modes, all_preds, average='macro', zero_division=0)
+#         recall = recall_score(all_modes, all_preds, average='macro', zero_division=0)
+#         f1 = f1_score(all_modes, all_preds, average='macro')
+#         all_metrics['accuracy'].append(accuracy)
+#         all_metrics['precision'].append(precision)
+#         all_metrics['recall'].append(recall)
+#         all_metrics['f1'].append(f1)
+#         all_metrics['val_loss'].append(val_loss)
+
+#         print(f"accuracy: {accuracy}")
+#         print(f"val_loss: {val_loss}")
+#     return all_metrics, best_model_state
 
 
 
@@ -224,10 +269,10 @@ def plot_metrics(metrics):
 
 def main(args):
     dataset_paths = {
-        'coffeepush': '/home/amisha/ibrl/augmented_data/coffeepush_mw12.hdf5',
-        'assembly': '/home/amisha/ibrl/augmented_data/assembly_mw12.hdf5',
-        'boxclose': '/home/amisha/ibrl/augmented_data/boxclose_mw12.hdf5',
-        'stickpull': '/home/amisha/ibrl/augmented_data/stickpull_mw12.hdf5'
+        'coffeepush': 'release/data/metaworld/mw12/coffeepush_mw12.hdf5',
+        'assembly': 'release/data/metaworld/mw12/assembly_mw12.hdf5',
+        'boxclose': 'release/data/metaworld/mw12/boxclose_mw12.hdf5',
+        'stickpull': 'release/data/metaworld/mw12/stickpull_mw12.hdf5'
     }
     
     paths = [dataset_paths[name] for name in args.datasets if name in dataset_paths]

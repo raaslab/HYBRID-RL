@@ -98,10 +98,10 @@ def plot_losses(train_losses):
 
 def main(args):
     dataset_paths = {
-        'coffeepush': '/home/amisha/ibrl/augmented_data/coffeepush_mw12.hdf5',
-        'assembly': '/home/amisha/ibrl/augmented_data/assembly_mw12.hdf5',
-        'boxclose': '/home/amisha/ibrl/augmented_data/boxclose_mw12.hdf5',
-        'stickpull': '/home/amisha/ibrl/augmented_data/stickpull_mw12.hdf5'
+        'coffeepush': '/home/amisha/ibrl/augmented_data/coffeepush/coffeepush_mw12.hdf5',
+        'assembly': '/home/amisha/ibrl/augmented_data/assembly/assembly_mw12.hdf5',
+        'boxclose': '/home/amisha/ibrl/augmented_data/boxclose/boxclose_mw12.hdf5',
+        'stickpull': '/home/amisha/ibrl/augmented_data/stickpull/stickpull_mw12.hdf5'
     }
 
     # filepaths = ['/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_part1.hdf5']

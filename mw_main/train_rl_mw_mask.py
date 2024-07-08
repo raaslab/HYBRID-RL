@@ -17,32 +17,14 @@ import mw_replay
 import train_bc_mw
 from eval_mw import run_eval
 import cv2
-
 import torch.nn as nn
 from torchvision import models
-# from mode_classifier import HybridResNet, device
-from mode_classifier_image import HybridResNet, device
-from waypoint_prediction import WaypointPredictor
-
-# Assuming the classifier model is saved in 'sparse_dense.pth'
-classifier_model = HybridResNet()
-classifier_model.load_state_dict(torch.load('mode.pth', map_location=device))
-classifier_model.to(device)
-classifier_model.eval()
+from mask import SegmentedHybridResNet
+# from mode_classifier_image import HybridResNet,device
+from waypoint import WaypointPredictor
 
 
 
-
-# Ensure the model is on the correct device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# waypoint_predictor.to(device)
-
-
-# def load_waypoint_predictor(model_path):
-#     model = WaypointPredictor()
-#     model.load_state_dict(torch.load(model_path))
-#     model.eval()  # Set the model to evaluation mode
-#     return model
 
 def predict_waypoint(model, corner2_image, prop):
     with torch.no_grad():  # Ensure no gradients are computed during prediction
@@ -52,10 +34,10 @@ def predict_waypoint(model, corner2_image, prop):
     return waypoint.numpy().flatten()
 
 BC_POLICIES = {
-    "assembly": "release/model/metaworld/pathAssembly_num_data3_num_epoch2_seed1/model1.pt",
-    "boxclose": "release/model/metaworld/pathBoxClose_num_data3_num_epoch2_seed1/model1.pt",
-    "coffeepush": "release/model/metaworld/pathCoffeePush_num_data3_num_epoch2_seed1/model1.pt",
-    "stickpull": "release/model/metaworld/pathStickPull_num_data3_num_epoch2_seed1/model1.pt",
+    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_Assembly/model1.pt",
+    "boxclose": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_BoxClose/model1.pt",
+    "coffeepush": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_CoffeePush/model1.pt",
+    "stickpull": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_StickPull/model1.pt",
 }
 
 BC_DATASETS = {
@@ -65,14 +47,12 @@ BC_DATASETS = {
     "stickpull": "release/data/metaworld/StickPull_frame_stack_1_96x96_end_on_success/dataset.hdf5",
 }
 
-SPARSE_THRESHOLD = 0.04
-
     
 @dataclass
 class MainConfig(common_utils.RunConfig):
-    seed: int = 1
+    seed: int = 0
     # Sparse control parameters
-    Kp = 4.0
+    Kp = 7
     # env
     episode_length: int = 200
     # agent
@@ -104,19 +84,21 @@ class MainConfig(common_utils.RunConfig):
     add_bc_loss: int = 0
     # log
     use_wb: int = 0
-    save_dir: str = f"experiments/rl/metaworld/hyrl_stickpull_seed{seed}_fullbc_{num_train_step}"
-    # save_dir: str = "exps/rl/metaworld/our_seed1_fullbc_200k"
+    save_dir: str = ""
 
     def __post_init__(self):
         self.preload_datapath = self.bc_policy
         if self.preload_datapath in BC_DATASETS:
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
+            dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
+
+        self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_seed_{self.seed}_{dataset_name}_kp7_segment50"
+
+
 
     @property
     def stddev_schedule(self):
         return f"linear({self.stddev_max},{self.stddev_min},{self.stddev_step})"
-
-
 
 
 class Workspace:
@@ -125,16 +107,13 @@ class Workspace:
         self.work_dir = cfg.save_dir
         print(f"workspace: {self.work_dir}")
 
-                # Create a video window
-        # self.window_name = 'Metaworld Environment'
-        # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        # cv2.resizeWindow(self.window_name, 600, 600)  
+        # # Create a video window
+        self.window_name = 'Metaworld Environment'
+        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(self.window_name, 600, 600) 
 
         common_utils.set_all_seeds(cfg.seed)
         sys.stdout = common_utils.Logger(cfg.log_path, print_to_stdout=True)
-
-
-
         pyrallis.dump(cfg, open(cfg.cfg_path, "w"))  # type: ignore
         print(common_utils.wrap_ruler("config"))
         with open(cfg.cfg_path, "r") as f:
@@ -143,7 +122,6 @@ class Workspace:
 
         self.cfg = cfg
         self.cfg_dict = yaml.safe_load(open(cfg.cfg_path, "r"))
-
         # we need bc policy to construct the environment :(, hack!
         assert cfg.bc_policy != "", "bc policy must be set to find the correct env config"
         self.env_params: dict[str, Any]
@@ -162,9 +140,35 @@ class Workspace:
         self._setup_env()
 
         # Waypoint Predictor Initialization
+        dataset_name = cfg.bc_policy.split('/')[-2].split('_')[-1].lower()
         self.waypoint_predictor = WaypointPredictor().cuda()
-        self.waypoint_predictor.load_state_dict(torch.load("waypoint.pth", map_location="cuda"))
+        waypoint_path = f"waypoint_models/waypoint_{dataset_name}.pth"
+        print(f"Using waypoint_model_path: {waypoint_path} ")
+        self.waypoint_predictor.load_state_dict(torch.load(waypoint_path, map_location="cuda"))
         self.waypoint_predictor.eval()  # Set the model to evaluation mode
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.classifier_model = SegmentedHybridResNet(model_type='resnet50', use_states=False)
+        mode_path ="/home/amisha/ibrl/mode_classifier_with_segmentation_50.pth"
+        # mode_path = f"mode_models_augmented/mode_{dataset_name}.pth"
+        print(f"Using mode_model_path: {mode_path}")
+        model_state_dict = torch.load(mode_path, map_location=device)
+        new_state_dict = {k: v for k, v in model_state_dict.items() if 'state_processor' not in k and 'classifier.weight' not in k}
+        self.classifier_model.load_state_dict(new_state_dict, strict=False)
+
+        # Manually handle the classifier weights if needed
+        if 'classifier.weight' in model_state_dict:
+            with torch.no_grad():
+                self.classifier_model.classifier.weight[:,:] = model_state_dict['classifier.weight'][:,:2048]  # Adjust as necessary
+                self.classifier_model.classifier.bias[:] = model_state_dict['classifier.bias']
+
+        # self.classifier_model.load_state_dict(torch.load(mode_path, map_location=device))
+        self.classifier_model.to(device)
+        self.classifier_model.eval()
+
+
+
+
 
         assert not cfg.q_agent.use_prop, "not implemented"
         self.agent = QAgent(
@@ -282,52 +286,31 @@ class Workspace:
         )
         self.agent.set_stats(stat)
         saver = common_utils.TopkSaver(save_dir=self.work_dir, topk=1)
-        # model_path = 'mode.pth'
-        # waypoint_predictor = load_waypoint_predictor(model_path)
         self.warm_up()
         self.num_success = self.replay.num_success
         stopwatch = common_utils.Stopwatch()
 
         obs, image_obs = self.train_env.reset()
         self.replay.new_episode(obs)
-                # Create a directory to save the rendered images
         print(obs.keys())  # To see all keys in the observation dictionary
         print(image_obs.keys())  # If image_obs is a dictionary, check its structure
-
-        render_dir = os.path.join(self.work_dir, 'renders')
-        os.makedirs(render_dir, exist_ok=True)
-        # mode = 'sparse'
-        while self.global_step < self.cfg.num_train_step:       ### Determine mode ###
-            # Assuming 'current_image' and 'current_props' are available from your RL environment
-
-
-            # print(f"Global step: {self.global_step}")
+        while self.global_step < self.cfg.num_train_step:    
             current_prop = obs['prop']  # Adapt these keys based on how your observations are structured
             current_image = image_obs['corner2']
-           
-            
+            mode_img = np.zeros((400,400))
             # object_pos = self.train_env.first_obs_pos
-            with torch.no_grad():
-                predicted_waypoint =  self.waypoint_predictor(torch.tensor(current_image, dtype=torch.float32, device="cuda").unsqueeze(0),
-                                   torch.tensor(current_prop[-1], dtype=torch.float32, device = "cuda").unsqueeze(0).unsqueeze(-1)).squeeze(0)
-                # print("Predicted Waypoint: ", predicted_waypoint)
-
-
-
-            # waypoint = self.get_waypoint(current_image, current_prop[-1])
-
-            # print(f"Global Step: {self.global_step}, Initial Object Position: {object_pos}")
-
             mode = self.determine_mode(current_image)
+            # mode = "dense"
             # print(f"Determined Mode: {mode}")
-
             ### Act based on mode ###
             if mode == 'sparse':
                 # action= self.servoing(obs, object_pos)
+                # print("Hi i am sparse")
+                with torch.no_grad():
+                    predicted_waypoint = self.waypoint_predictor(torch.tensor(current_image, dtype=torch.float32, device="cuda").unsqueeze(0),
+                                         torch.tensor(current_prop[-1], dtype=torch.float32, device = "cuda").unsqueeze(0).unsqueeze(-1)).squeeze(0)
                 action= self.servoing(obs, predicted_waypoint)
                 mode = self.determine_mode(current_image)
-                
-            # else:
             ### act ###
             if mode == 'dense':
                 with stopwatch.time("act"), torch.no_grad(), utils.eval_mode(self.agent):
@@ -335,23 +318,27 @@ class Workspace:
                     action = self.agent.act(obs, stddev=stddev, eval_mode=False)
                     stat["data/stddev"].append(stddev)
                 # print(f"Dense Mode Action: {action}")
-
             with stopwatch.time("env step"):
                 obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
-                # Render and save the environment image
-                # try:
-                #     if self.global_step % 1 == 0:
-                #         # print("Attempting to render the environment")
-                #         img = self.train_env.env.env.render(mode='rgb_array')
-                #         cv2.imshow(self.window_name,  cv2.cvtColor(img, cv2.COLOR_BGR2RGB))  # Show the image in the window
-                #         cv2.waitKey(1)
-                #         # img_path = os.path.join(render_dir, f'step_{self.global_step}.png')
-                #         # plt.imsave(img_path, img)
-                #         # plt.imshow(img)
-                #         # plt.axis('off')
-                #         # plt.show()
-                # except Exception as e:
-                #     print(f"Error rendering/saving image: {e}")
+                # # ----> Render the environment <----
+                try:
+                    img = self.train_env.env.env.render(mode='rgb_array')
+
+                    mode_img = cv2.putText(mode_img, str(reward), (mode_img.shape[1]//2 - 50, mode_img.shape[0]//2-50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2, cv2.LINE_AA)
+                    mode_img = cv2.putText(mode_img, mode, (mode_img.shape[1]//2 - 80, mode_img.shape[0]//2), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2, cv2.LINE_AA)
+                    if mode=="sparse":
+                        mode_img = cv2.putText(mode_img, f"X: {predicted_waypoint[0]}", 
+                                               (50, mode_img.shape[0]//2+50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
+                        mode_img = cv2.putText(mode_img, f"Y: {predicted_waypoint[1]}", 
+                                               (50, mode_img.shape[0]//2+80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
+                        mode_img = cv2.putText(mode_img, f"Z: {predicted_waypoint[2]}", 
+                                               (50, mode_img.shape[0]//2+110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)                       
+                    cv2.imshow(self.window_name,  cv2.cvtColor(img, cv2.COLOR_BGR2RGB))                    
+                    cv2.imshow("Mode",  mode_img)                    
+                    cv2.waitKey(1)
+                except Exception as e:
+                    print(f"Error rendering image: {e}")   
+
 
             with stopwatch.time("add"):
                 assert isinstance(terminal, bool)
@@ -368,15 +355,12 @@ class Workspace:
                     stat["data/episode_len"].append(self.train_env.time_step)
                     if self.replay.bc_replay is not None:
                         stat["data/bc_replay"].append(self.replay.size(bc=True))
-
                     # reset env
                     obs, image_obs = self.train_env.reset()
                     mode = self.determine_mode(current_image)
                     
                     self.replay.new_episode(obs)
-            # if cv2.waitKey(1) & 0xFF == ord('q'):  # Press 'q' to exit the loop
-            #     break
-                    # print(f"Environment reset at global step: {self.global_step}")
+
             ### logging ###
             if self.global_step % self.cfg.log_per_step == 0:
                 self.log_and_save(stopwatch, stat, saver)
@@ -491,16 +475,12 @@ class Workspace:
         # # Extract only the last value of the prop tensor
         # last_prop_value = prop[-1].unsqueeze(0)  # Adds an extra dimension to match batch size of 1
 
-        corner2_image = corner2_image.to(device).float()
-        
-        # Add batch dimensions if they’re not already present
-        # if len(prop.shape) == 1:
-        #     prop = prop.unsqueeze(0)
+        corner2_image = corner2_image.to("cuda").float()
         if len(corner2_image.shape) == 3:
             corner2_image = corner2_image.unsqueeze(0)
 
         with torch.no_grad():
-            outputs = classifier_model(corner2_image)
+            outputs = self.classifier_model(corner2_image)
             predicted_mode = torch.argmax(outputs, dim=1).item()  # Returns 0 or 1
         return 'sparse' if predicted_mode == 0 else 'dense'
 

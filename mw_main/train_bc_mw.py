@@ -355,7 +355,7 @@ if __name__ == "__main__":
     # Initialize dataset and determine task_name to add to save dir
     dataset = MetaWorldDataset(cfg.dataset)
     cfg.task_name = dataset.task_name
-    cfg.save_dir = f"exps/bc/metaworld/augmented_data_seed_{cfg.seed}_{cfg.task_name}"
+    cfg.save_dir = f"exps/bc/metaworld/bc_seed_{cfg.seed}_{cfg.task_name}"
 
 
     common_utils.set_all_seeds(cfg.seed)
