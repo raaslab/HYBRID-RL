@@ -34,7 +34,7 @@ def predict_waypoint(model, corner2_image, prop):
     return waypoint.numpy().flatten()
 
 BC_POLICIES = {
-    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_Assembly/model1.pt",
+    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_1_Assembly/model1.pt",
     "boxclose": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_BoxClose/model1.pt",
     "coffeepush": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_CoffeePush/model1.pt",
     "stickpull": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_StickPull/model1.pt",
@@ -50,9 +50,9 @@ BC_DATASETS = {
     
 @dataclass
 class MainConfig(common_utils.RunConfig):
-    seed: int = 0
+    seed: int = 1
     # Sparse control parameters
-    Kp = 7
+    Kp = 15
     # env
     episode_length: int = 200
     # agent
@@ -92,7 +92,7 @@ class MainConfig(common_utils.RunConfig):
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
             dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
 
-        self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_seed_{self.seed}_{dataset_name}_kp7_segment50"
+        self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_seed_{self.seed}_{dataset_name}_kp15_segment50"
 
 
 
@@ -149,7 +149,7 @@ class Workspace:
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.classifier_model = SegmentedHybridResNet(model_type='resnet50', use_states=False)
-        mode_path ="/home/amisha/ibrl/mode_classifier_with_segmentation_50.pth"
+        mode_path ="/home/amisha/ibrl/utilfiles/mode_classifier_with_segmentation_50.pth"
         # mode_path = f"mode_models_augmented/mode_{dataset_name}.pth"
         print(f"Using mode_model_path: {mode_path}")
         model_state_dict = torch.load(mode_path, map_location=device)
@@ -294,12 +294,14 @@ class Workspace:
         self.replay.new_episode(obs)
         print(obs.keys())  # To see all keys in the observation dictionary
         print(image_obs.keys())  # If image_obs is a dictionary, check its structure
+        mode="sparse"
         while self.global_step < self.cfg.num_train_step:    
             current_prop = obs['prop']  # Adapt these keys based on how your observations are structured
             current_image = image_obs['corner2']
             mode_img = np.zeros((400,400))
             # object_pos = self.train_env.first_obs_pos
-            mode = self.determine_mode(current_image)
+            # mode = self.determine_mode(current_image)
+            # mode="sparse"
             # mode = "dense"
             # print(f"Determined Mode: {mode}")
             ### Act based on mode ###
@@ -310,7 +312,11 @@ class Workspace:
                     predicted_waypoint = self.waypoint_predictor(torch.tensor(current_image, dtype=torch.float32, device="cuda").unsqueeze(0),
                                          torch.tensor(current_prop[-1], dtype=torch.float32, device = "cuda").unsqueeze(0).unsqueeze(-1)).squeeze(0)
                 action= self.servoing(obs, predicted_waypoint)
-                mode = self.determine_mode(current_image)
+                # mode = self.determine_mode(current_image)
+                # if self.waypoint_reached(obs['prop'][:3], predicted_waypoint):
+                    
+                mode = 'dense' 
+                # mode="dense"
             ### act ###
             if mode == 'dense':
                 with stopwatch.time("act"), torch.no_grad(), utils.eval_mode(self.agent):
@@ -357,8 +363,8 @@ class Workspace:
                         stat["data/bc_replay"].append(self.replay.size(bc=True))
                     # reset env
                     obs, image_obs = self.train_env.reset()
-                    mode = self.determine_mode(current_image)
-                    
+                    # mode = self.determine_mode(current_image)
+                    mode="sparse"
                     self.replay.new_episode(obs)
 
             ### logging ###
@@ -510,6 +516,22 @@ class Workspace:
         # print("Reached First Object")
         return torch.tensor(action)
 
+    def waypoint_reached(self, current_position, waypoint, threshold=0.04):
+        """
+        Check if the current position is close enough to the waypoint.
+        
+        Args:
+        current_position (np.array or torch.Tensor): Current position of the end-effector
+        waypoint (torch.Tensor): Target waypoint (on GPU)
+        threshold (float): Distance threshold to consider waypoint as reached
+        
+        Returns:
+        bool: True if waypoint is reached, False otherwise
+        """
+        if isinstance(current_position, np.ndarray):
+            current_position = torch.from_numpy(current_position).to(waypoint.device)
+        distance = torch.norm(current_position - waypoint).item()
+        return distance < threshold
 
 def main(cfg: MainConfig):
     workspace = Workspace(cfg)

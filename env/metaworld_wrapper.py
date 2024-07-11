@@ -109,7 +109,8 @@ class MetaWorldEnv(gym.Env):
 
     def reset(self, **kwargs):
         self.env.reset(**kwargs)
-        obs, _, _, _ = self.env.step(np.zeros_like(self.env.action_space.sample()))
+        # obs, _, _, _ = self.env.step(np.zeros_like(self.env.action_space.sample()))
+        obs, _, _, _ = self.env.step(self.env.action_space.sample())    # Changed this for randomization
         obs = np.take(obs, STATE_IDXS[self.env_name])
         # print("MetworldEnv - Environment reset invoked.")
 
@@ -512,6 +513,6 @@ if __name__ == "__main__":
         use_state=False,
     )
     x = env.reset()[0]["obs"].float() / 255
-    print(x.dtype)
-    print(x.shape)
+    # print(x.dtype)
+    # print(x.shape)
     save_image(x[-3:, :, :], "test_env.png")

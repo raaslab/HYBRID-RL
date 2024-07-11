@@ -50,9 +50,9 @@ BC_DATASETS = {
     
 @dataclass
 class MainConfig(common_utils.RunConfig):
-    seed: int = 1
+    seed: int = 0
     # Sparse control parameters
-    Kp = 11
+    Kp = 15
     # env
     episode_length: int = 200
     # agent
@@ -92,7 +92,8 @@ class MainConfig(common_utils.RunConfig):
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
             dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
 
-        self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_seed_{self.seed}_{dataset_name}_kp11"
+        # self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_seed_{self.seed}_{dataset_name}_kp11"
+        self.save_dir = f"exps/rl/metaworld/hyrl/randomization_test"
 
 
 
@@ -149,7 +150,7 @@ class Workspace:
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.classifier_model = HybridResNet()
-        mode_path ="/home/amisha/ibrl/mode_all.pth"
+        mode_path ="/home/amisha/ibrl/mode_models_jul_03/mode_assembly.pth"
         # mode_path = f"mode_models_augmented/mode_{dataset_name}.pth"
         print(f"Using mode_model_path: {mode_path}")
         # model_state_dict = torch.load(mode_path, map_location=device)
@@ -369,8 +370,9 @@ class Workspace:
                         stat["data/bc_replay"].append(self.replay.size(bc=True))
                     # reset env
                     obs, image_obs = self.train_env.reset()
-                    mode = self.determine_mode(current_image)
-                    
+                    # mode = self.determine_mode(current_image)
+                    mode="sparse"
+                    print(f"prop: {obs['prop']}")
                     self.replay.new_episode(obs)
 
             ### logging ###
