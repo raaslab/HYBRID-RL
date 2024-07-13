@@ -333,6 +333,7 @@ def load_model(weight_file, device):
         rl_camera=cfg.dataset.rl_camera,
         device=device,
         use_state=cfg.dataset.use_state,
+        randomize_start=False,
     )
 
     env = PixelMetaWorld(**env_params)  # type: ignore

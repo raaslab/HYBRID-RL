@@ -93,7 +93,7 @@ class MainConfig(common_utils.RunConfig):
             dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
 
         # self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_seed_{self.seed}_{dataset_name}_kp11"
-        self.save_dir = f"exps/rl/metaworld/hyrl/randomization_test"
+        self.save_dir = f"exps/rl/metaworld/hyrl/randomize_eval_test"
 
 
 
@@ -200,6 +200,7 @@ class Workspace:
 
         eval_env_params = self.env_params.copy()
         eval_env_params["env_reward_scale"] = 1.0
+        eval_env_params["randomize_start"] = True
         self.eval_env = PixelMetaWorld(**eval_env_params)  # type: ignore
 
     def _setup_replay(self):

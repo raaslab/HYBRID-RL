@@ -72,6 +72,7 @@ class MetaWorldEnv(gym.Env):
         camera_name,
         width,
         height,
+        randomize_start
     ):
         self.env_name = env_name
 
@@ -103,14 +104,19 @@ class MetaWorldEnv(gym.Env):
         self.width = width
         self.height = height
 
+        self.randomize_start = randomize_start
+
     @property
     def action_space(self):
         return self.env.action_space
 
     def reset(self, **kwargs):
         self.env.reset(**kwargs)
-        # obs, _, _, _ = self.env.step(np.zeros_like(self.env.action_space.sample()))
-        obs, _, _, _ = self.env.step(self.env.action_space.sample())    # Changed this for randomization
+        if not self.randomize_start:
+            obs, _, _, _ = self.env.step(np.zeros_like(self.env.action_space.sample()))
+        else:
+            print("I am randomized")
+            obs, _, _, _ = self.env.step(self.env.action_space.sample())    # Changed this for randomization
         obs = np.take(obs, STATE_IDXS[self.env_name])
         # print("MetworldEnv - Environment reset invoked.")
 
@@ -345,6 +351,7 @@ class PixelMetaWorld:
         env_reward_scale=1.0,
         end_on_success=True,
         use_state=False,
+        randomize_start = False,
     ):
         assert robots == None or robots == [] or robots == "Sawyer" or robots == ["Sawyer"]
         assert reward_shaping == False, "reward_shaping is not a supported argument"
@@ -358,6 +365,7 @@ class PixelMetaWorld:
             camera_name=camera_names[0],
             width=rl_image_size,
             height=rl_image_size,
+            randomize_start = randomize_start
         )
         # For every outer call to step, make multiple inner calls to step
         self.env = ActionRepeatWrapper(env=self.env, num_repeats=action_repeat)

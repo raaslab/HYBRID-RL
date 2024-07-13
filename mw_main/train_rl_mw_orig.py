@@ -19,8 +19,8 @@ from eval_mw import run_eval
 
 
 BC_POLICIES = {
-    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_1_Assembly/model1.pt",
-    "boxclose": "/home/amisha/ibrl/exps/bc/metaworld/augmented_data_seed_0_BoxClose/model1.pt",
+    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_2_Assembly/model1.pt",
+    "boxclose": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_2_BoxClose/model1.pt",
     "coffeepush": "/home/amisha/ibrl/exps/bc/metaworld/augmented_data_seed_2_CoffeePush/model1.pt",
     "stickpull": "/home/amisha/ibrl/exps/bc/metaworld/augmented_data_seed_2_StickPull/model1.pt",
 }
@@ -35,7 +35,7 @@ BC_DATASETS = {
 
 @dataclass
 class MainConfig(common_utils.RunConfig):
-    seed: int = 1
+    seed: int = 4
     # env
     episode_length: int = 200
     # agent
@@ -75,7 +75,8 @@ class MainConfig(common_utils.RunConfig):
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
             dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
 
-        self.save_dir = f"exps/rl/metaworld/ibrl/ibrl_seed{self.seed}_{dataset_name}_rand"
+        # self.save_dir = f"exps/rl/metaworld/ibrl/ibrl_seed{self.seed}_{dataset_name}_rand"
+        self.save_dir = f"exps/rl/metaworld/ibrl/no_randomize_evaluation"
         self.preload_datapath = BC_DATASETS.get(self.bc_policy, "")
 
     @property
@@ -146,6 +147,8 @@ class Workspace:
 
         eval_env_params = self.env_params.copy()
         eval_env_params["env_reward_scale"] = 1.0
+        eval_env_params["randomize_start"] = False
+        print(f"I am randomizing: {eval_env_params['randomize_start']}")
         self.eval_env = PixelMetaWorld(**eval_env_params)  # type: ignore
 
     def _setup_replay(self):
@@ -234,7 +237,7 @@ class Workspace:
         self.agent.set_stats(stat)
         saver = common_utils.TopkSaver(save_dir=self.work_dir, topk=1)
 
-        self.warm_up()
+        # self.warm_up()
         self.num_success = self.replay.num_success
         stopwatch = common_utils.Stopwatch()
 
