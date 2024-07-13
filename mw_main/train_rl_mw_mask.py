@@ -50,7 +50,7 @@ BC_DATASETS = {
     
 @dataclass
 class MainConfig(common_utils.RunConfig):
-    seed: int = 1
+    seed: int = 4
     # Sparse control parameters
     Kp = 15
     # env
@@ -92,7 +92,7 @@ class MainConfig(common_utils.RunConfig):
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
             dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
 
-        self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_seed_{self.seed}_{dataset_name}_kp15_segment50"
+        self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_seed_{self.seed}_{dataset_name}_rand"
 
 
 
@@ -199,6 +199,7 @@ class Workspace:
 
         eval_env_params = self.env_params.copy()
         eval_env_params["env_reward_scale"] = 1.0
+        eval_env_params["randomize_start"] = True
         self.eval_env = PixelMetaWorld(**eval_env_params)  # type: ignore
 
     def _setup_replay(self):

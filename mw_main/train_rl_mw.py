@@ -92,8 +92,8 @@ class MainConfig(common_utils.RunConfig):
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
             dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
 
-        # self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_seed_{self.seed}_{dataset_name}_kp11"
-        self.save_dir = f"exps/rl/metaworld/hyrl/randomize_eval_test"
+        self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_seed_{self.seed}_{dataset_name}_rand"
+        # self.save_dir = f"exps/rl/metaworld/hyrl/randomize_eval_test"
 
 
 
@@ -150,7 +150,7 @@ class Workspace:
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.classifier_model = HybridResNet()
-        mode_path ="/home/amisha/ibrl/mode_models_jul_03/mode_assembly.pth"
+        mode_path ="/home/amisha/ibrl/utilfiles/mode_all.pth"
         # mode_path = f"mode_models_augmented/mode_{dataset_name}.pth"
         print(f"Using mode_model_path: {mode_path}")
         # model_state_dict = torch.load(mode_path, map_location=device)
@@ -288,7 +288,7 @@ class Workspace:
         )
         self.agent.set_stats(stat)
         saver = common_utils.TopkSaver(save_dir=self.work_dir, topk=1)
-        self.warm_up()
+        # self.warm_up()
         self.num_success = self.replay.num_success
         stopwatch = common_utils.Stopwatch()
         # moving_to_waypoint = False

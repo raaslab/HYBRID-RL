@@ -75,8 +75,8 @@ class MainConfig(common_utils.RunConfig):
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
             dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
 
-        # self.save_dir = f"exps/rl/metaworld/ibrl/ibrl_seed{self.seed}_{dataset_name}_rand"
-        self.save_dir = f"exps/rl/metaworld/ibrl/no_randomize_evaluation"
+        self.save_dir = f"exps/rl/metaworld/ibrl/ibrl_seed{self.seed}_{dataset_name}_rand"
+        # self.save_dir = f"exps/rl/metaworld/ibrl/no_randomize_evaluation"
         self.preload_datapath = BC_DATASETS.get(self.bc_policy, "")
 
     @property
@@ -147,7 +147,7 @@ class Workspace:
 
         eval_env_params = self.env_params.copy()
         eval_env_params["env_reward_scale"] = 1.0
-        eval_env_params["randomize_start"] = False
+        eval_env_params["randomize_start"] = True
         print(f"I am randomizing: {eval_env_params['randomize_start']}")
         self.eval_env = PixelMetaWorld(**eval_env_params)  # type: ignore
 
@@ -296,6 +296,7 @@ class Workspace:
         stat["other/train_step"].append(self.train_step)
         stat["other/replay"].append(self.replay.size())
         stat["score/num_success"].append(self.replay.num_success)
+        
 
         with stopwatch.time("eval"):
             eval_score = self.eval(seed=self.global_step, policy=self.agent)
