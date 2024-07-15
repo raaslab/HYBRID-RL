@@ -111,7 +111,7 @@ class RobotEnv:
             assert (
                 self.home_pose is not None
             ), "Home pose not assigned! Call 'set_home_pose(<joint_angles>)' to enable homing"
-            return self.move_to_eef_positions(
+            return self.move_to_joint_positions(
                 positions=self.home_pose, delta=False)
 
     def move_to_joint_positions(self, positions: np.ndarray, delta: bool = False):
@@ -156,7 +156,7 @@ class RobotEnv:
         print("len(list(positions))", list(positions), "len(curr_joints)", curr_pose)
         print("len(reset_pose)", len(positions), "len(curr_pose)", len(curr_pose))
         if len(positions) == len(curr_pose):
-            rpy_delta = np.abs(curr_pose[3:] - positions[3:])   
+            rpy_delta = np.abs(curr_pose[3:6] - positions[3:6])   
             for angle in rpy_delta:
                 if abs(angle) > 0.75:
                     raise ValueError("Angle difference is too large")

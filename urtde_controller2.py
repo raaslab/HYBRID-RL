@@ -106,7 +106,6 @@ class URTDEController:
         self._robot.go_home(blocking=False)
         print("home position", self.ee_config.home)
 
-        # self._go_home(self.ee_config.home)
         ee_pos = self._robot.get_ee_pose()
         print("current ee pos:", ee_pos)
 
@@ -294,13 +293,13 @@ if __name__ == "__main__":
 
     controller = URTDEController(cfg.controller)
 
-    # time.sleep(3)
+    time.sleep(3)
 
-    # robot = controller._robot
+    robot = controller._robot
 
-    # import pandas as pd
+    import pandas as pd
 
-    # traj_file = "/home/sj/Assistive_Feeding_Gello/csv/90close/test/output18.csv"
+    traj_file = "/home/sj/Assistive_Feeding_Gello/csv/90close/test/output18.csv"
 
     # if args.agent == "ur":
     #     end_eff_pos_data = pd.read_csv(traj_file, skipfooter=1, usecols=range(7, 10), engine='python').astype(np.float64)
@@ -309,7 +308,9 @@ if __name__ == "__main__":
     #     # end_eff_pos_data = np.array([-0.12230709501381903,-0.28115410794389206,0.29961265005846593,-2.2113353082307734,-2.218063376173432,-0.051748804815462957])
     #     print("CSV read successfully")
 
-    # robot.move_to_eef_positions(end_eff_pos_data[0], delta=False)
+    # end_eff_pos_data = np.array([-0.16180178997317568, -0.2985096420466861, 0.3244259399099899, 2.2209047880868984, 2.219532927051384, 0.0004525461979062053, 0.0])
+
+    # robot.move_to_eef_positions(end_eff_pos_data, delta=False)
 
     # time.sleep(3)
 

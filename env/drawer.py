@@ -33,11 +33,11 @@ class DrawerEEConfig:
     def __init__(self):
         self.init_ee_pos = [-0.13197658623499917, -0.29838047412296725, 0.30388793480881526]  # the home ee position
         self.init_ee_rot = [ -2.2234566285008586, -2.218554556594895, -0.003929479049204914]
-        self.init_gripper = 1.0
-        # self.home = np.array(
-        #     [-1.57, -1.57, -1.57, -1.57, 1.57, 1.57, 0], dtype=np.float32
-        # )
-        self.home = np.concatenate([self.init_ee_pos, self.init_ee_rot, [self.init_gripper]])
+        self.init_gripper = 0.0
+        self.home = np.array(
+            [-1.57, -1.57, -1.57, -1.57, 1.57, 1.57, 0], dtype=np.float32
+        )
+        # self.home = np.concatenate([self.init_ee_pos, self.init_ee_rot, [self.init_gripper]])
 
         # limits
         self.pos_low = np.array([0.35, -0.2, 0.19])
