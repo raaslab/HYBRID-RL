@@ -84,7 +84,7 @@ class DrawerEEConfig:
     def reset(self, robot):
         had_no_policy = False
 
-        ee_pos, _ = robot._robot.get_ee_pose()
+        ee_pos, _ = robot.get_ee_pose()
         target_y = -0.1
         # if ee_pos[1].item() > target_y:
         #     print("fixing position")
@@ -97,7 +97,7 @@ class DrawerEEConfig:
         while ee_pos[1].item() > target_y:
             with Rate(20):
                 robot.update([0, -0.02, 0, 0, 0, 0, 0])
-            ee_pos, _ = robot._robot.get_ee_pose()
+            ee_pos = robot._robot.get_ee_pose()
 
         # if had_no_policy:
         #     robot._robot.terminate_current_policy()

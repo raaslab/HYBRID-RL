@@ -115,7 +115,7 @@ class URTDEController:
         else:
             self._max_gripper_width = 255  # default, from Robotiq Value
 
-        self.desired_gripper_qpos = 255
+        self.desired_gripper_qpos = 0
 
     def hello(self):
         return "hello"
@@ -187,28 +187,23 @@ class URTDEController:
         # Update the gripper
         self.update_gripper(gripper_action, blocking=False)
 
-    def _go_home(self, home):
-        print("going home")
-        self._robot.set_home_pose(home)
-        self._robot.go_home(blocking=False)
 
     def reset(self, randomize: bool) -> None:
         print("reset env")
 
         self.update_gripper(0)  # open the gripper
 
-        self.ee_config.reset(self)
-
-        # if self._robot.is_running_policy():
-        #     self._robot.terminate_current_policy()
+        # self.ee_config.reset(self, robot=self._robot)
 
         home = self.ee_config.home
+
         if randomize:
             # TODO: adjust this noise
-            high = 0.1 * np.ones_like(home)
+            high = 0.01 * np.ones_like(home)
             noise = np.random.uniform(low=-high, high=high)
             print("home noise:", noise)
             home = home + noise
+            self._robot.set_home_pose(home)
 
         self._robot.go_home(blocking=False)
 
@@ -308,10 +303,14 @@ if __name__ == "__main__":
     #     # end_eff_pos_data = np.array([-0.12230709501381903,-0.28115410794389206,0.29961265005846593,-2.2113353082307734,-2.218063376173432,-0.051748804815462957])
     #     print("CSV read successfully")
 
-    # end_eff_pos_data = np.array([-0.16180178997317568, -0.2985096420466861, 0.3244259399099899, 2.2209047880868984, 2.219532927051384, 0.0004525461979062053, 0.0])
+    end_eff_pos_data = np.array([-0.16180178997317568, -0.2985096420466861, 0.3244259399099899, 2.2209047880868984, 2.219532927051384, -0.7004525461979062053, 0.0])
 
-    # robot.move_to_eef_positions(end_eff_pos_data, delta=False)
+    robot.move_to_eef_positions(end_eff_pos_data, delta=False)
 
-    # time.sleep(3)
+    time.sleep(3)
 
-    # controller.reset(randomize=False)
+    controller.update_gripper(0.5)
+
+    time.sleep(3)
+
+    controller.reset(randomize=False)
