@@ -11,8 +11,14 @@ from env.hang import HangEEConfig
 from env.towel import TowelEEConfig
 
 from robots.ur import URRobot
-from robots.robotiq_gripper import RobotiqGripper
+from zmq_core.robot_node import ZMQClientRobot
+from env.env import RobotEnv
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
+
+print(sys.path)
 try:
     import rtde_control
     import rtde_receive
@@ -47,7 +53,7 @@ class ActionSpace:
 
 @dataclass
 class URTDEControllerConfig:
-    task: str = "lift"
+    task: str = "drawer"
     # robot_ip should be local because this runs on the nuc that connects to the robot
     robot_ip_address: str = "localhost"
     controller_type: str = "CARTESIAN_DELTA"
@@ -63,10 +69,10 @@ class URTDEController:
 
     # # Define the bounds for the Franka Robot
     JOINT_LOW = np.array(
-        [-2.7437, -1.7837, -2.9007, -3.0421, -2.8065, 0.5445, -3.0159], dtype=np.float32
+        [-2.6172, -1.832, -1.832, -1.832, 1.046, 1.046, 0], dtype=np.float32
     )
     JOINT_HIGH = np.array(
-        [2.7437, 1.7837, 2.9007, -0.1518, 2.8065, 4.5169, 3.0159], dtype=np.float32
+        [-0.5228, -1.308, -1.308, -1.308, 2.094, 2.094, 1], dtype=np.float32
     )
 
     def __init__(self, cfg: URTDEControllerConfig) -> None:
@@ -78,7 +84,7 @@ class URTDEController:
 
         if cfg.task == "lift":
             self.ee_config = LiftEEConfig()
-        elif cfg.task == "drawer":
+        elif cfg.task == "drawer":  
             self.ee_config = DrawerEEConfig()
         elif cfg.task == "hang":
             self.ee_config = HangEEConfig()
@@ -93,15 +99,14 @@ class URTDEController:
             self._robot = MockRobot()
             self._gripper = MockGripper()
         else:
-            assert URTDE_IMPORTED, "Attempted to load robot without polymetis package."
-            self._robot = URRobot(  # type: ignore
-                robot_ip=self.cfg.robot_ip_address, no_gripper=False
-            )
+            assert URTDE_IMPORTED, "Attempted to load robot without URTDE package."
+            robot_client = ZMQClientRobot(port=args.robot_port, host=args.hostname)
+            self._robot = RobotEnv(robot_client, control_rate_hz=args.hz, camera_dict=args.camera_clients)
             self._gripper = self._robot.gripper
 
-        self._robot.set_home_pose(torch.from_numpy(self.ee_config.home))
-        self._robot.go_home(blocking=True)
-        ee_pos, ee_quat = self._robot.get_ee_pose()
+        self._robot.set_home_pose(self.ee_config.home)
+        self._robot.go_home(blocking=False)
+        ee_pos = self._robot.get_ee_pose()
         print("current ee pos:", ee_pos)
 
         if hasattr(self._gripper, "_max_position") :
@@ -162,13 +167,14 @@ class URTDEController:
         gripper_action: float = action[-1]
 
         if self.cfg.controller_type == "CARTESIAN_DELTA":
-            ee_pos, ee_quat = self._robot.get_ee_pose()
+            pos = self._robot.get_ee_pose()
+            ee_pos, ee_quat = pos[:3], pos[3:]
             delta_pos, delta_ori = np.split(robot_action, [3])
 
             # compute new pos and new quat
-            new_pos = ee_pos.numpy() + delta_pos
+            new_pos = ee_pos + delta_pos
             # TODO: this can be made much faster using purpose build methods instead of scipy.
-            old_rot = Rotation.from_quat(ee_quat.numpy())
+            old_rot = Rotation.from_quat(ee_quat)
             delta_rot = Rotation.from_euler("xyz", delta_ori)
             new_rot = (delta_rot * old_rot).as_euler("xyz")
 
@@ -226,7 +232,7 @@ class URTDEController:
             print("home noise:", noise)
             home = home + noise
 
-        self._go_home(home)
+        self._go_home(home, blocking=False)
 
         # assert not self._robot.is_running_policy()
         # self._robot.start_cartesian_impedance()
@@ -239,7 +245,7 @@ class URTDEController:
         """
         ee_pos, ee_quat = self._robot.get_ee_pose()
         gripper_state = self._gripper.get_current_position()
-        gripper_pos = 1 - (gripper_state.width / self._max_gripper_width)
+        gripper_pos = 1 - (gripper_state / self._max_gripper_width) # 0 is open and 1 is closed
 
         state = {
             "robot0_eef_pos": list(ee_pos),
@@ -393,6 +399,13 @@ def goto_delta(ip_address, task):
 
     return
 
+import datetime
+import glob
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional, Tuple
+
 
 @dataclass
 class PolyMainConfig:
@@ -407,8 +420,8 @@ class PolyMainConfig:
 
     def __post_init__(self):
         address_book = {
-            "local": "tcp://0.0.0.0:4242",
-            "fr2": "tcp://172.16.0.1:4242",
+            "local": "tcp://192.168.77.243:4242",
+            "fr2": "tcp://192.168.77.21:4242",
         }
         if self.server:
             self.rpc_address = address_book["local"]
@@ -434,3 +447,32 @@ if __name__ == "__main__":
         goto_delta(cfg.rpc_address, cfg.task)
     elif cfg.goto:
         goto(cfg.goto, cfg.rpc_address, cfg.task)
+
+@dataclass
+class Args:
+    hostname: str = "192.168.77.243"
+    robot_port: int = 50003  # for trajectory
+    robot_ip: str = "192.168.77.21" 
+    robot_type: str = None  # only needed for quest agent or spacemouse agent
+    hz: int = 100
+    start_pose: Optional[Tuple[float, ...]] = None
+
+    use_save_interface: bool = False
+    data_dir: str = "~/bc_data"
+    verbose: bool = False
+    camera_clients = {
+    # you can optionally add camera nodes here for imitation learning purposes
+    # "wrist": ZMQClientCamera(port=args.wrist_camera_port, host=args.hostname),
+    # "base": ZMQClientCamera(port=args.base_camera_port, host=args.hostname),
+    }
+    controller: URTDEControllerConfig = field(
+        default_factory=lambda: URTDEControllerConfig()
+    )
+
+if __name__ == "__main__":
+    args = Args()
+    
+    cfg = pyrallis.parse(config_class=PolyMainConfig)  # type: ignore
+    np.set_printoptions(precision=4, linewidth=100, suppress=True)
+
+    controller = URTDEController(cfg.controller)

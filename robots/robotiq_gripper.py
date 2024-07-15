@@ -258,7 +258,7 @@ class RobotiqGripper:
             raise RuntimeError(
                 f"Calibration failed because of an object: {str(status)}"
             )
-        assert position <= self._max_position
+        assert position <= self._max_position           
         self._max_position = position
 
         # try to open as far as possible, and record the number

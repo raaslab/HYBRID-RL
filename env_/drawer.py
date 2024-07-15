@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import time
 from scipy.spatial.transform import Rotation
-from env.ur3e_utils import Rate
+from env.franka_utils import ControlFreqGuard
 
 
 class Drawer:
@@ -83,16 +83,16 @@ class DrawerEEConfig:
 
         ee_pos, _ = robot._robot.get_ee_pose()
         target_y = -0.1
-        # if ee_pos[1].item() > target_y:
-        #     print("fixing position")
-            # if not robot._robot.is_running_policy():
-            #     robot._robot.start_cartesian_impedance()
-            #     time.sleep(1)
-            #     had_no_policy = True
+        if ee_pos[1].item() > target_y:
+            print("fixing position")
+            if not robot._robot.is_running_policy():
+                robot._robot.start_cartesian_impedance()
+                time.sleep(1)
+                had_no_policy = True
 
         assert robot.cfg.controller_type == "CARTESIAN_DELTA"
         while ee_pos[1].item() > target_y:
-            with Rate(20):
+            with ControlFreqGuard(20):
                 robot.update([0, -0.02, 0, 0, 0, 0, 0])
             ee_pos, _ = robot._robot.get_ee_pose()
 

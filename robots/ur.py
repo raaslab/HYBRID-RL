@@ -50,20 +50,20 @@ class URRobot(Robot):
             return 7
         return 6
 
-    def set_home_pose(self, home_pose: torch.Tensor):
+    def set_home_pose(self, home_pose: np.ndarray):
         """Sets the home pose for `go_home()` to use."""
         self.home_pose = home_pose
 
-    def go_home(self) :
+    def go_home(self, blocking=True) -> None:
         """Calls move_to_joint_positions to the current home positions."""
-        assert (
-            self.home_pose is not None
-        ), "Home pose not assigned! Call 'set_home_pose(<joint_angles>)' to enable homing"
-        return self.move_to_joint_positions(
-            positions=self.home_pose, delta=False)
-        
+        if blocking is False:
+            assert (
+                self.home_pose is not None
+            ), "Home pose not assigned! Call 'set_home_pose(<joint_angles>)' to enable homing"
+            return self.move_to__positions(
+                positions=self.home_pose, delta=False)
     
-    def move_to_joint_positions(self, positions: torch.Tensor, delta: bool = False):
+    def move_to_joint_positions(self, positions: np.ndarray, delta: bool = False):
         """Moves the robot to the specified joint positions.
 
         Args:
@@ -75,7 +75,7 @@ class URRobot(Robot):
         """
         curr_joints = self.get_observations()["joint_positions"]
         if len(list(positions)) == len(curr_joints):
-            max_delta = (np.abs(curr_joints - positions.numpy())).max()
+            max_delta = (np.abs(curr_joints - positions)).max()
             print("max_delta", max_delta)   
             steps = min(int(max_delta / 0.01), 100)
         for jnt in np.linspace(curr_joints, positions, steps):
@@ -95,7 +95,20 @@ class URRobot(Robot):
             self.num_dofs()
         ), f"input:{len(joints)}, robot:{self.num_dofs()}"
         assert self.num_dofs() == len(joints)
-        self.command_joint_state(joints)
+        self.command_eef_pose(joints)
+        self._rate.sleep()
+        return self.get_observations()
+    
+    def update_desired_ee_pose(self, pose: np.ndarray) :
+        """Step the environment forward.
+
+        Args:
+            pose: eefpose and rot angles command to step the environment with.
+
+        Returns:
+            obs: observation from the environment.
+        """
+        self.command_eef_pose(pose)
         self._rate.sleep()
         return self.get_observations()
     
@@ -130,13 +143,12 @@ class URRobot(Robot):
         if self._use_gripper:
             gripper_pos = self._get_gripper_pos()
             # end_eff_pos = np.append(robot_end_eff_pos, gripper_pos)
-            end_eff_pos = robot_end_eff_pos[:3]
-            end_eff_quat = robot_end_eff_pos[3:]
+            end_eff_pos = robot_end_eff_pos
+            # end_eff_quat = robot_end_eff_pos[3:]
         else:
-            end_eff_pos = robot_end_eff_pos[:3]
-            end_eff_quat = robot_end_eff_pos[3:]
-        return end_eff_pos, end_eff_quat
-
+            end_eff_pos = robot_end_eff_pos
+            # end_eff_quat = robot_end_eff_pos[3:]
+        return end_eff_pos
 
     def command_joint_state(self, joint_state: np.ndarray) -> None:
         """Command the leader robot to a given state.
@@ -151,10 +163,13 @@ class URRobot(Robot):
         gain = 100
 
         robot_joints = joint_state
+
+        print("robot_joints", robot_joints) 
         t_start = self.robot.initPeriod()
-        self.robot.servoJ(
+        success = self.robot.moveL(
             robot_joints, velocity, acceleration, dt, lookahead_time, gain
         )
+        print("success", success)
         if self._use_gripper:
             gripper_pos = joint_state[-1] * 255
             self.gripper.move(gripper_pos, 255, 10)
@@ -166,20 +181,24 @@ class URRobot(Robot):
         Args:
             eef_pose (np.ndarray): The eef_pose to command the leader robot to.
         """
-        velocity = 0.5
-        acceleration = 0.5
-        dt = 1.0 / 500  # 2ms
+        eef_pos_ = eef_pos.tolist()
+        velocity = 0.1
+        acceleration = 0.1
+        # dt = 1.0 / 500  # 2ms
+        dt = 1.0
         lookahead_time = 0.2
         gain = 100
 
-        robot_joints = eef_pos
         t_start = self.robot.initPeriod()
-        self.robot.servoL(
-            robot_joints, velocity, acceleration, dt, lookahead_time, gain
-        )
-        if self._use_gripper:
-            gripper_pos = eef_pos[-1] * 255
-            self.gripper.move(gripper_pos, 255, 10)
+
+        print("Entered command_eef_pose")
+        try:
+            self.robot.servoL(eef_pos_, velocity, acceleration, dt, lookahead_time, gain)
+            if self._use_gripper:
+                gripper_pos = eef_pos[-1] * 255
+                self.gripper.move(gripper_pos, 255, 10)
+        except Exception as e:
+            print(f"Error in command_eef_pose: {e}")
         self.robot.waitPeriod(t_start)
     
     def freedrive_enabled(self) -> bool:
@@ -205,8 +224,7 @@ class URRobot(Robot):
 
     def get_observations(self) -> Dict[str, np.ndarray]:
         joints = self.get_joint_state()
-        # pos_quat = np.zeros(7)
-        pos_quat = self.get_end_eff_pos()
+        pos_quat = self.get_ee_pose()
         gripper_pos = np.array([joints[-1]])
         return {
             "joint_positions": joints,
@@ -214,7 +232,6 @@ class URRobot(Robot):
             "ee_pos_quat": pos_quat,
             "gripper_position": gripper_pos,
         }
-
 
 def main():
     robot_ip = "192.168.1.11"

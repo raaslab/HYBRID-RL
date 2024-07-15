@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import time
 from scipy.spatial.transform import Rotation
-from env.franka_utils import ControlFreqGuard
+from env.ur3e_utils import Rate
 
 
 class Drawer:
@@ -31,10 +31,13 @@ class Drawer:
 
 class DrawerEEConfig:
     def __init__(self):
-        self.init_ee_pos = [0.41, 0, 0.5]  # the home ee position
-        self.home = np.array(
-            [0.0, -0.15 * np.pi, 0.0, -0.75 * np.pi, 0.0, 0.60 * np.pi, 0], dtype=np.float32
-        )
+        self.init_ee_pos = [-0.13197658623499917, -0.29838047412296725, 0.30388793480881526]  # the home ee position
+        self.init_ee_rot = [ -2.2234566285008586, -2.218554556594895, -0.003929479049204914]
+        self.init_gripper = 0.0
+        # self.home = np.array(
+        #     [-1.57, -1.57, -1.57, -1.57, 1.57, 1.57, 0], dtype=np.float32
+        # )
+        self.home = np.concatenate([self.init_ee_pos, self.init_ee_rot])
 
         # limits
         self.pos_low = np.array([0.35, -0.2, 0.19])
@@ -83,21 +86,21 @@ class DrawerEEConfig:
 
         ee_pos, _ = robot._robot.get_ee_pose()
         target_y = -0.1
-        if ee_pos[1].item() > target_y:
-            print("fixing position")
-            if not robot._robot.is_running_policy():
-                robot._robot.start_cartesian_impedance()
-                time.sleep(1)
-                had_no_policy = True
+        # if ee_pos[1].item() > target_y:
+        #     print("fixing position")
+        #     if not robot._robot.is_running_policy():
+        #         robot._robot.start_cartesian_impedance()
+        #         time.sleep(1)
+        #         had_no_policy = True
 
         assert robot.cfg.controller_type == "CARTESIAN_DELTA"
         while ee_pos[1].item() > target_y:
-            with ControlFreqGuard(20):
+            with Rate(20):
                 robot.update([0, -0.02, 0, 0, 0, 0, 0])
             ee_pos, _ = robot._robot.get_ee_pose()
 
-        if had_no_policy:
-            robot._robot.terminate_current_policy()
+        # if had_no_policy:
+        #     robot._robot.terminate_current_policy()
 
 
 def show_image(images, wait_key=0):

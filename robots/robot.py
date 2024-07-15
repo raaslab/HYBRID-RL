@@ -38,11 +38,11 @@ class Robot(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def command_eef_pose(self, eef_pos: np.ndarray) -> None:
-        """Command the leader robot to a given eef_pose.
+    def command_eef_pose(self, pose: np.ndarray) -> None:
+        """Command the leader robot to a given pose.
 
         Args:
-            eef_pose (np.ndarray): The eef_pose to command the leader robot to.
+            Pose (np.ndarray): The state to command the leader robot to.
         """
         raise NotImplementedError
     

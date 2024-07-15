@@ -6,10 +6,9 @@ import numpy as np
 import cv2
 from env.urtde_controller import URTDEControllerClient
 from env.cameras import RealSenseCamera
-from env.robosuite_wrapper import PROP_KEYS
 from common_utils import ibrl_utils as utils
 
-from env.franka_utils import ControlFreqGuard
+from env.ur3e_utils import Rate
 from env.lift import Lift
 from env.drawer import Drawer
 from env.hang import Hang
@@ -24,6 +23,7 @@ _ROBOT_CAMERAS = {
     }
 }
 
+PROP_KEYS = ["robot0_eef_pos", "robot0_eef_quat", "robot0_gripper_qpos"]
 
 @dataclass
 class FrankaEnvConfig:
@@ -104,7 +104,7 @@ class FrankaEnv:
 
         self.observation_shape: tuple[int, ...] = (3, cfg.rl_image_size, cfg.rl_image_size)
         self.prop_shape: tuple[int] = (8,)
-        self.controller = PolyMetisControllerClient(cfg.remote_ip_address, cfg.task)
+        self.controller = URTDEControllerClient(cfg.remote_ip_address, cfg.task)
         self.action_dim = len(self.controller.action_space.low)
 
         self.time_step = 0
@@ -250,7 +250,7 @@ class FrankaEnv:
         # Note that `action` has been scaled to [-1, 1],
         # `self.controller.update` will perform the unscale
 
-        with ControlFreqGuard(self.cfg.control_hz):
+        with Rate(self.cfg.control_hz):
             # print(f"[env] step: {self.time_step}")
             assert action.dim() == 1, "multi-action open loop not supported yet"
             assert action.min() >= -1, action.min()
@@ -286,7 +286,7 @@ def test():
     for k, v in obs.items():
         print(k, v.size())
 
-    with ControlFreqGuard(10.0):
+    with Rate(10.0):
         action = torch.from_numpy(np.random.random(7).astype(np.float32))
         env.apply_action(action)
 

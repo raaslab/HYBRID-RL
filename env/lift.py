@@ -138,17 +138,17 @@ class LiftEEConfig:
 
         min_height = 0.4
         ee_pos, ee_quat = robot.get_ee_pose()
-        if ee_pos[2].item() < min_height:
-            print("fixing position")
-            if not robot.is_running_policy():
-                robot.start_cartesian_impedance()
-                time.sleep(1)
-                had_no_policy = True
+        # if ee_pos[2].item() < min_height:
+        #     print("fixing position")
+        #     if not robot.is_running_policy():
+        #         robot.start_cartesian_impedance()
+        #         time.sleep(1)
+        #         had_no_policy = True
 
         while ee_pos[2].item() < min_height:
             ee_pos[2] += 0.02
             robot.update_desired_ee_pose(ee_pos, ee_quat)
             ee_pos, ee_quat = robot.get_ee_pose()
 
-        if had_no_policy:
-            robot.terminate_current_policy()
+        # if had_no_policy:
+        #     robot.terminate_current_policy()

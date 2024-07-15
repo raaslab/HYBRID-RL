@@ -1,7 +1,7 @@
 import numpy as np
 import time
 from scipy.spatial.transform import Rotation
-from env.franka_utils import ControlFreqGuard
+from env.ur3e_utils import Rate
 
 
 class Hang:
@@ -181,24 +181,24 @@ class HangEEConfig:
         min_height = 0.32
         min_right = 0.08
         ee_pos, _ = robot._robot.get_ee_pose()
-        if ee_pos[1].item() < min_right:
-            print("fixing position")
-            if not robot._robot.is_running_policy():
-                print("[reset]: restart cartesian")
-                robot._robot.start_cartesian_impedance()
-                time.sleep(1)
-                had_no_policy = True
+        # if ee_pos[1].item() < min_right:
+        #     print("fixing position")
+        #     if not robot._robot.is_running_policy():
+        #         print("[reset]: restart cartesian")
+        #         robot._robot.start_cartesian_impedance()
+        #         time.sleep(1)
+        #         had_no_policy = True
 
         assert robot.cfg.controller_type == "CARTESIAN_DELTA"
         while ee_pos[2].item() < min_height:
-            with ControlFreqGuard(20):
+            with Rate(20):
                 robot.update([0, 0, 0.02, 0, 0, 0, 0])
             ee_pos, _ = robot._robot.get_ee_pose()
 
         while ee_pos[1].item() < min_right:
-            with ControlFreqGuard(20):
+            with Rate(20):
                 robot.update([0, 0.02, 0, 0, 0, 0, 0])
             ee_pos, _ = robot._robot.get_ee_pose()
 
-        if had_no_policy:
-            robot._robot.terminate_current_policy()
+        # if had_no_policy:
+        #     robot._robot.terminate_current_policy()
