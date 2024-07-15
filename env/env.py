@@ -97,7 +97,6 @@ class RobotEnv:
         """
         Gives out the end effector position of the leader robot.
         """
-        # robot_end_eff_pos =  self._robot.get_observations()["ee_pos_quat"]
         robot_end_eff_pos = self._robot.get_observations()["ee_pos_quat"]
         
         return robot_end_eff_pos
@@ -152,12 +151,12 @@ class RobotEnv:
         curr_pose = self._robot.get_observations()["ee_pos_quat"]
         gripper_pos = self._robot.get_observations()["gripper_position"]
 
-        # curr_pose = np.concatenate([curr_pose, gripper_pos])
+        curr_pose = np.concatenate([curr_pose, gripper_pos])
         # print("curr_joints", curr_joints)
         print("len(list(positions))", list(positions), "len(curr_joints)", curr_pose)
         print("len(reset_pose)", len(positions), "len(curr_pose)", len(curr_pose))
         if len(positions) == len(curr_pose):
-            rpy_delta = np.abs(curr_pose[:3] - positions[:3])   
+            rpy_delta = np.abs(curr_pose[3:] - positions[3:])   
             for angle in rpy_delta:
                 if abs(angle) > 0.75:
                     raise ValueError("Angle difference is too large")

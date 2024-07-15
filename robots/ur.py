@@ -181,7 +181,7 @@ class URRobot(Robot):
         Args:
             eef_pose (np.ndarray): The eef_pose to command the leader robot to.
         """
-        eef_pos_ = eef_pos.tolist()
+        eef_pos_ = eef_pos[:-1].tolist()
         velocity = 0.1
         acceleration = 0.1
         # dt = 1.0 / 500  # 2ms
