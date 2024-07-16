@@ -49,7 +49,7 @@ BC_DATASETS = {
     
 @dataclass
 class MainConfig(common_utils.RunConfig):
-    seed: int = 2
+    seed: int = 3
     # Sparse control parameters
     Kp = 3.5
     # env
@@ -188,6 +188,7 @@ class Workspace:
 
         eval_env_params = self.env_params.copy()
         eval_env_params["env_reward_scale"] = 1.0
+        eval_env_params["randomize_start"] = True
         self.eval_env = PixelMetaWorld(**eval_env_params)  # type: ignore
 
     def _setup_replay(self):
@@ -275,7 +276,7 @@ class Workspace:
         )
         self.agent.set_stats(stat)
         saver = common_utils.TopkSaver(save_dir=self.work_dir, topk=1)
-        self.warm_up()
+        # self.warm_up()
         self.num_success = self.replay.num_success
         stopwatch = common_utils.Stopwatch()
 

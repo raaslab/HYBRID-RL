@@ -9,15 +9,17 @@ import h5py
 print(metaworld.ML1.ENV_NAMES)  # Check out the available environments
 
 # Initialize the environment
-mt1 = metaworld.MT1("stick-pull-v2")
-env = mt1.train_classes["stick-pull-v2"]()
+mt1 = metaworld.MT1("disassemble-v2")
+env = mt1.train_classes["disassemble-v2"]()
+# mt1 = metaworld.MT1("assembly-v2")
+# env = mt1.train_classes["assembly-v2"]()
 task = random.choice(mt1.train_tasks)
 env.set_task(task)
 obs = env.reset()
 env.render()  # This call should initialize the viewer
 
 # Load waypoints from hdf5 file
-hdf5_path = '/home/amisha/ibrl/release/data/metaworld/StickPull_frame_stack_1_96x96_end_on_success/dataset.hdf5'
+hdf5_path = '/home/amisha/ibrl/release/data/metaworld/Assembly_frame_stack_1_96x96_end_on_success/dataset.hdf5'
 waypoints = []
 gripper_controls = []
 
@@ -35,9 +37,9 @@ kp = 4.0
 def run(waypoints, gripper_controls, obs):
     for waypoint, gripper_control in zip(waypoints, gripper_controls):
         for _ in range(max_steps):
-            if env.viewer is not None:  # Additional check after attempting to render
-                env.viewer.cam.fixedcamid = 2
-                env.viewer.cam.type = 2  # Using fixed camera type
+            # if env.viewer is not None:  # Additional check after attempting to render
+                # env.viewer.cam.fixedcamid = 2
+                # env.viewer.cam.type = 2  # Using fixed camera type
             env.render()
 
             current_pos = obs[:3]  # Assuming the first 3 values of obs are x, y, z coordinates
@@ -60,5 +62,5 @@ def run(waypoints, gripper_controls, obs):
 
 run(waypoints, gripper_controls, obs)
 
-time.sleep(20)
+time.sleep(10)
 env.close()

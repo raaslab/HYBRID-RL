@@ -2,7 +2,7 @@ import re
 import torch
 import numpy as np
 import collections
-
+from env.AssembleDisassemble import AssembleDisassembleEnv
 try:
     import gym
     import metaworld
@@ -22,6 +22,7 @@ GOOD_CAMERAS = {
     "StickPull": ["corner2"],
     "PegInsertSide": ["corner2"],
     "Soccer": ["corner2"],
+    "AssembleDisassembler":["corner2"],
 }
 DEFAULT_CAMERA = "corner2"
 
@@ -37,6 +38,7 @@ STATE_IDXS = {
     "StickPull": list(range(39)),
     "PegInsertSide": list(range(39)),
     "Soccer": list(range(39)),
+    "AssembleDisassembler":list(range(39)),
 }
 STATE_SHAPE = {env_name: (len(STATE_IDXS[env_name]),) for env_name in STATE_IDXS.keys()}
 
@@ -56,6 +58,7 @@ PROP_IDXS = {
     "HandInsert": list(range(4)),
     "PegInsertSide": list(range(4)),
     "Soccer": list(range(4)),
+    "AssembleDisassembler":list(range(4)),
 }
 PROP_SHAPE = {env_name: (len(PROP_IDXS[env_name]),) for env_name in STATE_IDXS.keys()}
 
@@ -75,14 +78,22 @@ class MetaWorldEnv(gym.Env):
         randomize_start
     ):
         self.env_name = env_name
-
-        # Convert, e.g., CoffeePush to coffee-push
-        env_id = re.sub(r"([a-z])([A-Z])", r"\1-\2", self.env_name).lower()
-        env_id = f"{env_id}-v2-goal-observable"
-        # for x in metaworld.envs.ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE:
-        #     print(x)
-        env_cls = metaworld.envs.ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE[env_id]
-        self.env = env_cls()
+        # Check for custom environment
+        if env_name == "AssembleDisassemble":
+            self.env = AssembleDisassembleEnv()
+        else:
+            # Convert, e.g., CoffeePush to coffee-push
+            env_id = re.sub(r"([a-z])([A-Z])", r"\1-\2", self.env_name).lower()
+            env_id = f"{env_id}-v2-goal-observable"
+            env_cls = metaworld.envs.ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE[env_id]
+            self.env = env_cls()
+        # # Convert, e.g., CoffeePush to coffee-push
+        # env_id = re.sub(r"([a-z])([A-Z])", r"\1-\2", self.env_name).lower()
+        # env_id = f"{env_id}-v2-goal-observable"
+        # # for x in metaworld.envs.ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE:
+        # #     print(x)
+        # env_cls = metaworld.envs.ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE[env_id]
+        # self.env = env_cls()
 
         # Ensures that every time `reset` is called, the goal position is randomized
         self.env._freeze_rand_vec = False

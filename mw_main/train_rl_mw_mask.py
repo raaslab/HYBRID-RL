@@ -50,7 +50,7 @@ BC_DATASETS = {
     
 @dataclass
 class MainConfig(common_utils.RunConfig):
-    seed: int = 4
+    seed: int = 1
     # Sparse control parameters
     Kp = 15
     # env
@@ -92,7 +92,7 @@ class MainConfig(common_utils.RunConfig):
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
             dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
 
-        self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_seed_{self.seed}_{dataset_name}_rand"
+        self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_random_eval/hyrl_seed_{self.seed}_{dataset_name}_rand"
 
 
 
@@ -107,10 +107,10 @@ class Workspace:
         self.work_dir = cfg.save_dir
         print(f"workspace: {self.work_dir}")
 
-        # # Create a video window
-        self.window_name = 'Metaworld Environment'
-        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(self.window_name, 600, 600) 
+        # # # Create a video window
+        # self.window_name = 'Metaworld Environment'
+        # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        # cv2.resizeWindow(self.window_name, 600, 600) 
 
         common_utils.set_all_seeds(cfg.seed)
         sys.stdout = common_utils.Logger(cfg.log_path, print_to_stdout=True)
@@ -287,7 +287,7 @@ class Workspace:
         )
         self.agent.set_stats(stat)
         saver = common_utils.TopkSaver(save_dir=self.work_dir, topk=1)
-        self.warm_up()
+        # self.warm_up()
         self.num_success = self.replay.num_success
         stopwatch = common_utils.Stopwatch()
 
@@ -328,23 +328,23 @@ class Workspace:
             with stopwatch.time("env step"):
                 obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
                 # # ----> Render the environment <----
-                try:
-                    img = self.train_env.env.env.render(mode='rgb_array')
+                # try:
+                #     img = self.train_env.env.env.render(mode='rgb_array')
 
-                    mode_img = cv2.putText(mode_img, str(reward), (mode_img.shape[1]//2 - 50, mode_img.shape[0]//2-50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2, cv2.LINE_AA)
-                    mode_img = cv2.putText(mode_img, mode, (mode_img.shape[1]//2 - 80, mode_img.shape[0]//2), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2, cv2.LINE_AA)
-                    if mode=="sparse":
-                        mode_img = cv2.putText(mode_img, f"X: {predicted_waypoint[0]}", 
-                                               (50, mode_img.shape[0]//2+50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
-                        mode_img = cv2.putText(mode_img, f"Y: {predicted_waypoint[1]}", 
-                                               (50, mode_img.shape[0]//2+80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
-                        mode_img = cv2.putText(mode_img, f"Z: {predicted_waypoint[2]}", 
-                                               (50, mode_img.shape[0]//2+110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)                       
-                    cv2.imshow(self.window_name,  cv2.cvtColor(img, cv2.COLOR_BGR2RGB))                    
-                    cv2.imshow("Mode",  mode_img)                    
-                    cv2.waitKey(1)
-                except Exception as e:
-                    print(f"Error rendering image: {e}")   
+                #     mode_img = cv2.putText(mode_img, str(reward), (mode_img.shape[1]//2 - 50, mode_img.shape[0]//2-50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2, cv2.LINE_AA)
+                #     mode_img = cv2.putText(mode_img, mode, (mode_img.shape[1]//2 - 80, mode_img.shape[0]//2), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2, cv2.LINE_AA)
+                #     if mode=="sparse":
+                #         mode_img = cv2.putText(mode_img, f"X: {predicted_waypoint[0]}", 
+                #                                (50, mode_img.shape[0]//2+50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
+                #         mode_img = cv2.putText(mode_img, f"Y: {predicted_waypoint[1]}", 
+                #                                (50, mode_img.shape[0]//2+80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
+                #         mode_img = cv2.putText(mode_img, f"Z: {predicted_waypoint[2]}", 
+                #                                (50, mode_img.shape[0]//2+110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)                       
+                #     cv2.imshow(self.window_name,  cv2.cvtColor(img, cv2.COLOR_BGR2RGB))                    
+                #     cv2.imshow("Mode",  mode_img)                    
+                #     cv2.waitKey(1)
+                # except Exception as e:
+                #     print(f"Error rendering image: {e}")   
 
 
             with stopwatch.time("add"):

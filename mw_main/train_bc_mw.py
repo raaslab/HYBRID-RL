@@ -189,7 +189,7 @@ class MetaWorldDataset:
 class MainConfig(common_utils.RunConfig):
     dataset: DatasetConfig = field(default_factory=lambda: DatasetConfig(""))
     policy: BcPolicyConfig = field(default_factory=lambda: BcPolicyConfig())
-    seed: int = 2
+    seed: int = 3
     load_model: str = "none"
     # training
     num_epoch: int = 2

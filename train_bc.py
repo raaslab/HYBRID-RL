@@ -21,7 +21,7 @@ class MainConfig(common_utils.RunConfig):
     state_policy: StateBcPolicyConfig = field(default_factory=lambda: StateBcPolicyConfig())
     policy: BcPolicyConfig = field(default_factory=lambda: BcPolicyConfig())
     # training
-    seed: int = 1
+    seed: int = 3
     load_model: str = "none"
     num_epoch: int = 20
     epoch_len: int = 10000

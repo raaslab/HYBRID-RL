@@ -34,9 +34,9 @@ def predict_waypoint(model, corner2_image, prop):
     return waypoint.numpy().flatten()
 
 BC_POLICIES = {
-    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_Assembly/model1.pt",
-    "boxclose": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_BoxClose/model1.pt",
-    "coffeepush": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_1_CoffeePush/model1.pt",
+    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_2_Assembly/model1.pt",
+    "boxclose": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_2_BoxClose/model1.pt",
+    "coffeepush": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_CoffeePush/model1.pt",
     "stickpull": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_StickPull/model1.pt",
 }
 
@@ -50,7 +50,7 @@ BC_DATASETS = {
     
 @dataclass
 class MainConfig(common_utils.RunConfig):
-    seed: int = 0
+    seed: int = 4
     # Sparse control parameters
     Kp = 15
     # env
@@ -92,7 +92,7 @@ class MainConfig(common_utils.RunConfig):
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
             dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
 
-        self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_seed_{self.seed}_{dataset_name}_rand"
+        self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_random_eval/hyrl_seed_{self.seed}_{dataset_name}"
         # self.save_dir = f"exps/rl/metaworld/hyrl/randomize_eval_test"
 
 
@@ -108,10 +108,10 @@ class Workspace:
         self.work_dir = cfg.save_dir
         print(f"workspace: {self.work_dir}")
 
-        # # Create a video window
-        self.window_name = 'Metaworld Environment'
-        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(self.window_name, 600, 600) 
+        # # # Create a video window
+        # self.window_name = 'Metaworld Environment'
+        # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        # cv2.resizeWindow(self.window_name, 600, 600) 
 
         common_utils.set_all_seeds(cfg.seed)
         sys.stdout = common_utils.Logger(cfg.log_path, print_to_stdout=True)
@@ -298,6 +298,7 @@ class Workspace:
         self.replay.new_episode(obs)
         print(obs.keys())  # To see all keys in the observation dictionary
         print(image_obs.keys())  # If image_obs is a dictionary, check its structure
+        # mode="sparse"
         while self.global_step < self.cfg.num_train_step:    
             current_prop = obs['prop']  # Adapt these keys based on how your observations are structured
             current_image = image_obs['corner2']
@@ -320,6 +321,7 @@ class Workspace:
 
                 action = self.servoing(obs, predicted_waypoint)
                 mode = self.determine_mode(current_image)
+                # mode="dense"
                 # # Check if waypoint is reached
                 # if self.waypoint_reached(obs['prop'][:3], current_waypoint):
                 #     moving_to_waypoint = False
@@ -335,23 +337,23 @@ class Workspace:
             with stopwatch.time("env step"):
                 obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
                 # # ----> Render the environment <----
-                try:
-                    img = self.train_env.env.env.render(mode='rgb_array')
+                # try:
+                #     img = self.train_env.env.env.render(mode='rgb_array')
 
-                    mode_img = cv2.putText(mode_img, str(reward), (mode_img.shape[1]//2 - 50, mode_img.shape[0]//2-50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2, cv2.LINE_AA)
-                    mode_img = cv2.putText(mode_img, mode, (mode_img.shape[1]//2 - 80, mode_img.shape[0]//2), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2, cv2.LINE_AA)
-                    if mode=="sparse":
-                        mode_img = cv2.putText(mode_img, f"X: {predicted_waypoint[0]}", 
-                                               (50, mode_img.shape[0]//2+50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
-                        mode_img = cv2.putText(mode_img, f"Y: {predicted_waypoint[1]}", 
-                                               (50, mode_img.shape[0]//2+80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
-                        mode_img = cv2.putText(mode_img, f"Z: {predicted_waypoint[2]}", 
-                                               (50, mode_img.shape[0]//2+110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)                       
-                    cv2.imshow(self.window_name,  cv2.cvtColor(img, cv2.COLOR_BGR2RGB))                    
-                    cv2.imshow("Mode",  mode_img)                    
-                    cv2.waitKey(1)
-                except Exception as e:
-                    print(f"Error rendering image: {e}")   
+                #     mode_img = cv2.putText(mode_img, str(reward), (mode_img.shape[1]//2 - 50, mode_img.shape[0]//2-50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2, cv2.LINE_AA)
+                #     mode_img = cv2.putText(mode_img, mode, (mode_img.shape[1]//2 - 80, mode_img.shape[0]//2), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2, cv2.LINE_AA)
+                #     if mode=="sparse":
+                #         mode_img = cv2.putText(mode_img, f"X: {predicted_waypoint[0]}", 
+                #                                (50, mode_img.shape[0]//2+50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
+                #         mode_img = cv2.putText(mode_img, f"Y: {predicted_waypoint[1]}", 
+                #                                (50, mode_img.shape[0]//2+80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
+                #         mode_img = cv2.putText(mode_img, f"Z: {predicted_waypoint[2]}", 
+                #                                (50, mode_img.shape[0]//2+110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)                       
+                #     cv2.imshow(self.window_name,  cv2.cvtColor(img, cv2.COLOR_BGR2RGB))                    
+                #     cv2.imshow("Mode",  mode_img)                    
+                #     cv2.waitKey(1)
+                # except Exception as e:
+                #     print(f"Error rendering image: {e}")   
 
 
             with stopwatch.time("add"):
@@ -371,9 +373,9 @@ class Workspace:
                         stat["data/bc_replay"].append(self.replay.size(bc=True))
                     # reset env
                     obs, image_obs = self.train_env.reset()
-                    # mode = self.determine_mode(current_image)
-                    mode="sparse"
-                    print(f"prop: {obs['prop']}")
+                    mode = self.determine_mode(current_image)
+                    # mode="sparse"
+                    # print(f"prop: {obs['prop']}")
                     self.replay.new_episode(obs)
 
             ### logging ###

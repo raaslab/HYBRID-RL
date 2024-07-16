@@ -49,7 +49,7 @@ BC_DATASETS = {
     
 @dataclass
 class MainConfig(common_utils.RunConfig):
-    seed: int = 1
+    seed: int = 4
     # Sparse control parameters
     Kp = 3.5
     # env
@@ -91,7 +91,7 @@ class MainConfig(common_utils.RunConfig):
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
             dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
 
-        self.save_dir = f"exps/rl/metaworld/RL/RL_seed{self.seed}_{dataset_name}"
+        self.save_dir = f"exps/rl/metaworld/only_RL/only_RL_random_eval/RL_seed{self.seed}_{dataset_name}"
 
 
 
@@ -149,7 +149,7 @@ class Workspace:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.classifier_model = HybridResNet()
         # mode_path="/home/amisha/ibrl/mode_models_jul_03/mode_assembly.pth"
-        mode_path = f"mode_models_jul_03/mode_{dataset_name}.pth"
+        mode_path = "/home/amisha/ibrl/utilfiles/mode_all.pth"
         print(f"Using mode_model_path: {mode_path}")
         self.classifier_model.load_state_dict(torch.load(mode_path, map_location=device))
         self.classifier_model.to(device)
@@ -188,6 +188,7 @@ class Workspace:
 
         eval_env_params = self.env_params.copy()
         eval_env_params["env_reward_scale"] = 1.0
+        eval_env_params["randomize_start"] = True
         self.eval_env = PixelMetaWorld(**eval_env_params)  # type: ignore
 
     def _setup_replay(self):
@@ -275,7 +276,7 @@ class Workspace:
         )
         self.agent.set_stats(stat)
         saver = common_utils.TopkSaver(save_dir=self.work_dir, topk=1)
-        self.warm_up()
+        # self.warm_up()
         self.num_success = self.replay.num_success
         stopwatch = common_utils.Stopwatch()
 
@@ -283,13 +284,14 @@ class Workspace:
         self.replay.new_episode(obs)
         print(obs.keys())  # To see all keys in the observation dictionary
         print(image_obs.keys())  # If image_obs is a dictionary, check its structure
+        mode="dense"
         while self.global_step < self.cfg.num_train_step:    
             current_prop = obs['prop']  # Adapt these keys based on how your observations are structured
             current_image = image_obs['corner2']
             mode_img = np.zeros((400,400))
             # object_pos = self.train_env.first_obs_pos
-            mode = self.determine_mode(current_image)
-            # mode = "dense"
+            # mode = self.determine_mode(current_image)
+            mode = "dense"
             # print(f"Determined Mode: {mode}")
             ### Act based on mode ###
             if mode == 'sparse':
