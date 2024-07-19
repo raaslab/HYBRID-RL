@@ -165,10 +165,12 @@ class RobotEnv:
             print("max_delta", max_delta)   
             steps = min(int(max_delta / 0.001), 100)
 
-            for pose in np.linspace(curr_pose, positions, steps):
-                print("pose", pose)
-                self.update_desired_ee_pose(pose)
-                time.sleep(0.001)
+            self.update_desired_ee_pose(positions)
+            
+            # for pose in np.linspace(curr_pose, positions, steps):
+            #     print("pose", pose)
+            #     self.update_desired_ee_pose(pose)
+            #     time.sleep(0.001)
 
         return True
             

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import torch
 import numpy as np
 import cv2
-from env.urtde_controller import URTDEControllerClient
+from urtde_controller2 import URTDEController
 from env.cameras import RealSenseCamera
 from common_utils import ibrl_utils as utils
 
@@ -14,9 +14,10 @@ from env.drawer import Drawer
 from env.hang import Hang
 from env.towel import Towel
 
+from urtde_controller2 import PolyMainConfig, Args
 
 _ROBOT_CAMERAS = {
-    "fr2": {
+    "ur3e": {
         "agentview": "042222070680",
         "robot0_eye_in_hand": "241222076578",
         "frontview": "838212072814",
@@ -26,10 +27,10 @@ _ROBOT_CAMERAS = {
 PROP_KEYS = ["robot0_eef_pos", "robot0_eef_quat", "robot0_gripper_qpos"]
 
 @dataclass
-class FrankaEnvConfig:
+class UR3eEnvConfig:
     task: str
     episode_length: int = 200
-    robot: str = "fr2"  # fr2, fr3
+    robot: str = "ur3e"  # ur3e, fr3
     control_hz: float = 10.0
     image_size: int = 224
     rl_image_size: int = 96
@@ -44,7 +45,7 @@ class FrankaEnvConfig:
     def __post_init__(self):
         self.rl_cameras = self.rl_camera.split("+")
 
-        if self.robot == "fr2":
+        if self.robot == "ur3e":
             self.remote_ip_address = "tcp://172.16.0.1:4242"
         elif self.robot == "local":
             self.remote_ip_address = "tcp://0.0.0.0:4242"
@@ -52,14 +53,14 @@ class FrankaEnvConfig:
             assert False, f"unknown robot {self.robot}"
 
 
-class FrankaEnv:
+class UR3eEnv:
     """
     A simple Gym Environment for controlling robots.
 
     gripper: -1: open, 1: close
     """
 
-    def __init__(self, device, cfg: FrankaEnvConfig):
+    def __init__(self, device, cfg: UR3eEnvConfig):
         self.device = device
         self.cfg = cfg
 
@@ -104,7 +105,13 @@ class FrankaEnv:
 
         self.observation_shape: tuple[int, ...] = (3, cfg.rl_image_size, cfg.rl_image_size)
         self.prop_shape: tuple[int] = (8,)
-        self.controller = URTDEControllerClient(cfg.remote_ip_address, cfg.task)
+        args = Args()
+    
+        cfg2 = pyrallis.parse(config_class=PolyMainConfig)  # type: ignore
+        np.set_printoptions(precision=4, linewidth=100, suppress=True)
+
+        self.controller = URTDEController(cfg2.controller)
+
         self.action_dim = len(self.controller.action_space.low)
 
         self.time_step = 0
@@ -141,7 +148,7 @@ class FrankaEnv:
     def observe(self):
         props, in_good_range = self.controller.get_state()
         if not in_good_range:
-            print("Warning[FrankaEnv]: bad range, should have restarted")
+            print("Warning[UR3eEnv]: bad range, should have restarted")
 
         prop = torch.from_numpy(
             np.concatenate([props[prop_key] for prop_key in PROP_KEYS]).astype(np.float32)
@@ -271,15 +278,15 @@ class FrankaEnv:
 
     def release_gripper(self):
         action = np.zeros(self.action_dim)
-        action[-1] = -1
+        action[-1] = 0
         self.controller.update(action)
 
 
 def test():
     np.set_printoptions(precision=4)
 
-    cfg = FrankaEnvConfig()
-    env = FrankaEnv("cuda", cfg)
+    cfg = UR3eEnvConfig()
+    env = UR3eEnv("cuda", cfg)
 
     env.reset()
     obs = env.observe()
@@ -287,7 +294,7 @@ def test():
         print(k, v.size())
 
     with Rate(10.0):
-        action = torch.from_numpy(np.random.random(7).astype(np.float32))
+        action = np.random.random(7).astype(np.float32)
         env.apply_action(action)
 
     obs = env.observe()

@@ -13,7 +13,8 @@ from robots.ur import URRobot
 from zmq_core.robot_node import ZMQClientRobot
 from env.env import RobotEnv
 from robots.robotiq_gripper import RobotiqGripper
-
+import pandas as pd
+import h5py
 import pyrallis
 try:
     import rtde_control
@@ -32,10 +33,15 @@ class ActionSpace:
 
     def assert_in_range(self, actionl: list[float]):
         action: np.ndarray = np.array(actionl)
-
+        
         correct = (action <= self.high).all() and (action >= self.low).all()
         if correct:
             return True
+
+        # temporary - delete later
+        if abs(action[3]) > 4 or abs(action[4]) > 4:
+            return True
+
 
         for i in range(self.low.size):
             check = action[i] >= self.low[i] and action[i] <= self.high[i]
@@ -131,8 +137,8 @@ class URTDEController:
             raise ValueError("Invalid Controller type provided")
 
         # Add the gripper action space
-        low.append(0.0)
-        high.append(1.0)
+        # low.append(0.0)
+        # high.append(1.0)
         return low, high
 
     def update_gripper(self, gripper_action: float, blocking=False) -> None:
@@ -152,7 +158,7 @@ class URTDEController:
         """
         Updates the robot controller with the action
         """
-        assert len(action) == 6, f"wrong action dim: {len(action)}"
+        assert len(action) == 7, f"wrong action dim: {len(action)}"
         # assert self._robot.is_running_policy(), "policy not running"
 
         '''
@@ -161,7 +167,7 @@ class URTDEController:
         #     self._robot.start_cartesian_impedance()
         #     time.sleep(1)
         '''
-        assert self.action_space.assert_in_range(action)
+        assert self.action_space.assert_in_range(action[:-1])
 
         robot_action: np.ndarray = np.array(action[:-1])
         gripper_action: float = action[-1]
@@ -172,20 +178,26 @@ class URTDEController:
             delta_pos, delta_ori = np.split(robot_action, [3])
 
             # compute new pos and new quat
-            new_pos = ee_pos + delta_pos
+            new_pos = ee_pos - delta_pos
             # TODO: this can be made much faster using purpose build methods instead of scipy.
-            new_rot = (delta_ori * ee_ori).astype(np.float32)
+            # new_rot = (delta_ori * ee_ori).astype(np.float32)
+            new_rot = ee_ori - delta_ori
 
             # clip
-            new_pos, new_rot = self.ee_config.clip(new_pos, new_rot)
-            end_eff_pos = np.concatenate((new_pos, new_rot))
-            self._robot.update_desired_ee_pose(end_eff_pos)
+            # new_pos, new_rot = self.ee_config.clip(new_pos, new_rot)
+            end_eff_pos = np.concatenate((new_pos, new_rot, [gripper_action]))
+
+            # Temporary - delete later 
+            if abs(action[3]) < 4 or abs(action[4]) < 4:
+                print("end_eff_pos:", end_eff_pos)
+                self._robot.move_to_eef_positions(end_eff_pos)
 
         else:
             raise ValueError("Invalid Controller type provided")
 
         # Update the gripper
-        self.update_gripper(gripper_action, blocking=False)
+        # print("gripper action:", gripper_action)
+        # self.update_gripper(gripper_action, blocking=False)
 
 
     def reset(self, randomize: bool) -> None:
@@ -199,7 +211,7 @@ class URTDEController:
 
         if randomize:
             # TODO: adjust this noise
-            high = 0.01 * np.ones_like(home)
+            high = 0.05 * np.ones_like(home)
             noise = np.random.uniform(low=-high, high=high)
             print("home noise:", noise)
             home = home + noise
@@ -235,6 +247,13 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
+
+def denormalize_delta(normalized_delta, range_min, range_max):
+    return 0.5 * (normalized_delta + 1) * (range_max - range_min) + range_min
+
+# Example usage and testing
+range_min = -2 * np.pi
+range_max = 2 * np.pi
 
 
 @dataclass
@@ -294,23 +313,31 @@ if __name__ == "__main__":
 
     import pandas as pd
 
-    traj_file = "/home/sj/Assistive_Feeding_Gello/csv/90close/test/output18.csv"
+    traj_file = "/home/sj/Downloads/image_data_delta.hdf5"
 
-    # if args.agent == "ur":
-    #     end_eff_pos_data = pd.read_csv(traj_file, skipfooter=1, usecols=range(7, 10), engine='python').astype(np.float64)
-    #     end_eff_quat_data = pd.read_csv(traj_file, skipfooter=1, usecols=range(10, 13), engine='python').astype(np.float64)
-    #     end_eff_pos_data = np.concatenate((end_eff_pos_data, end_eff_quat_data), axis=1)
-    #     # end_eff_pos_data = np.array([-0.12230709501381903,-0.28115410794389206,0.29961265005846593,-2.2113353082307734,-2.218063376173432,-0.051748804815462957])
-    #     print("CSV read successfully")
+    with h5py.File(traj_file, 'r') as f:
+        demo_data = f['data/demo_0/actions'][:]
+        print("CSV read successfully")
+        print(demo_data[0])
 
-    end_eff_pos_data = np.array([-0.16180178997317568, -0.2985096420466861, 0.3244259399099899, 2.2209047880868984, 2.219532927051384, -0.7004525461979062053, 0.0])
+    new_ori = denormalize_delta(demo_data[:, 3:6], -2 * np.pi, 2 * np.pi)
+    gripper_pos = np.reshape(demo_data[:, 6], (-1, 1))
+    actions = np.concatenate((demo_data[:, :3], new_ori, gripper_pos), axis=1)
 
-    robot.move_to_eef_positions(end_eff_pos_data, delta=False)
+    print(f"action: {actions[-1]}")
+    for action in actions:
+        print(action)
+        controller.update(action)
+        time.sleep(0.1)
+    # end_eff_pos_data = np.array([-0.00180178997317568, -0.2985096420466861, 0.3244259399099899, 2.2209047880868984, 2.219532927051384, 0.051748804815462957, 0.0])
 
-    time.sleep(3)
+    # robot.move_to_eef_positions(end_eff_pos_data[0], delta=False)
 
-    controller.update_gripper(0.5)
+    # time.sleep(3)
 
-    time.sleep(3)
+    # controller.update_gripper(0.5)
 
-    controller.reset(randomize=False)
+    # time.sleep(3)
+
+    # controller.reset(randomize=True)
+

@@ -139,12 +139,27 @@ if __name__ == "__main__":
         cv2.imshow("img", image)
         cv2.waitKey(wait_key)
 
+    # import time
+    # def get_device_ids():
+    #     ctx = rs.context()
+    #     devices = ctx.query_devices()
+    #     device_ids = []
+    #     for dev in devices:
+    #         dev.hardware_reset()
+    #         device_ids.append(dev.get_info(rs.camera_info.serial_number))
+    #     time.sleep(2)
+    #     return device_ids
+
+    # device_ids = get_device_ids()
+    # print(f"Found {len(device_ids)} devices")
+    # print(device_ids)
+
     cams = {
         # "in_hand": RealSenseCamera("241222076578", height=224, width=224, depth=False),
         # "left": RealSenseCamera("042222070680", height=224, width=224, depth=False),
         # "side-left": OpenCVCamera("/dev/video12", height=224, width=224, depth=False),
         # "side-right": OpenCVCamera("/dev/video14", height=224, width=224, depth=False),
-        "front": RealSenseCamera("838212072814", height=224, width=224, depth=False),
+        "front": RealSenseCamera("032622072103", height=500, width=500, depth=False),
         # "front": OpenCVCamera("/dev/video16", height=224, width=224, depth=False),
     }
 
@@ -152,8 +167,8 @@ if __name__ == "__main__":
         images = []
         for name, cam in cams.items():
             rgb_image = cam.get_frames()[""]
-            if name == "front":
-                rgb_image = cv2.rotate(rgb_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            # if name == "front":
+            #     rgb_image = cv2.rotate(rgb_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
             images.append(rgb_image)
 
         show_image(images, 1)

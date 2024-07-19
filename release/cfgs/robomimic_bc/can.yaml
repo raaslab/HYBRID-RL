@@ -1,5 +1,6 @@
 dataset:
-  path: release/data/robomimic/can/processed_data96.hdf5
+  # path: release/data/robomimic/can/processed_data96.hdf5
+  path: /home/sj/Downloads/image_data.hdf5
   rl_camera: robot0_eye_in_hand
   num_data: 10
 use_wb: 0

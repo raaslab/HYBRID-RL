@@ -421,7 +421,7 @@ class PolyMainConfig:
     def __post_init__(self):
         address_book = {
             "local": "tcp://192.168.77.243:4242",
-            "fr2": "tcp://192.168.77.21:4242",
+            "ur3e": "tcp://192.168.77.21:4242",
         }
         if self.server:
             self.rpc_address = address_book["local"]

@@ -102,6 +102,7 @@ class RobomimicDataset:
             else:
                 for camera in self.cfg.rl_cameras:
                     obses: np.ndarray = episode[f"obs/{camera}_image"]  # type: ignore
+                    print(f"actions shape: {actions.shape[0]} obs shape: {obses.shape[0]}")
                     assert obses.shape[0] == actions.shape[0]
                     episode_data[camera] = obses
 
