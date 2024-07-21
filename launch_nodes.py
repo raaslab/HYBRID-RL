@@ -10,7 +10,8 @@ import numpy as np
 @dataclass
 class Args:
     ###------ Hardware ------
-    hostname: str = "192.168.77.243"
+    # hostname: str = "192.168.77.243"
+    hostname: str = "10.104.56.158"
     robot_ip: str = "192.168.77.21"
     robot_port: int = 50003  # for trajectory
     robot: str = "ur"

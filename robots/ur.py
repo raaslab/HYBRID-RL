@@ -38,7 +38,7 @@ class URRobot(Robot):
         self._free_drive = False
         self.robot.endFreedriveMode()
         self._use_gripper = not no_gripper
-        self.rate = Rate(control_rate_hz)
+        # self.rate = Rate(control_rate_hz)
 
     def num_dofs(self) -> int:
         """Get the number of joints of the robot.
@@ -95,8 +95,9 @@ class URRobot(Robot):
             self.num_dofs()
         ), f"input:{len(joints)}, robot:{self.num_dofs()}"
         assert self.num_dofs() == len(joints)
-        self.command_eef_pose(joints)
-        self._rate.sleep()
+        # self.command_eef_pose(joints)
+        self.command_joint_state(joints)
+        # self._rate.sleep()
         return self.get_observations()
     
     def update_desired_ee_pose(self, pose: np.ndarray) :
@@ -109,7 +110,7 @@ class URRobot(Robot):
             obs: observation from the environment.
         """
         self.command_eef_pose(pose)
-        self._rate.sleep()
+        # self._rate.sleep()
         return self.get_observations()
     
     def _get_gripper_pos(self) -> float:
@@ -186,7 +187,7 @@ class URRobot(Robot):
         velocity = 0.1
         acceleration = 0.1
         # dt = 1.0 / 500  # 2ms
-        dt = 1.0
+        dt = 0.0002
         lookahead_time = 0.2
         gain = 100
 

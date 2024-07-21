@@ -85,13 +85,13 @@ class LiftEEConfig:
         self.init_ee_pos = [0.5, 0, 0.32]
         self.home = np.array(
             [
-                np.pi * 0.0,  # 1st joint (from base), horizontal, negative: rotate clockwise
-                np.pi * 0.0,  # 2nd joint, vertical, negative: go up, positive: go down
-                np.pi * 0.0,  # 3rd joint, horizontal,
-                -(3.0 / 4.0) * np.pi,
-                0.0,
-                0.75 * np.pi,  # 6th, smaller -> inward
-                np.pi * 0.0,  # np.pi * 0.5,  # control the rotation of the gripper
+                -1.57,  # 1st joint (from base), horizontal, negative: rotate clockwise
+                -1.57,  # 2nd joint, vertical, negative: go up, positive: go down
+                -1.57,  # 3rd joint, horizontal,
+                -1.57,
+                1.57,
+                1.57,  # 6th, smaller -> inward
+                0.0,  # np.pi * 0.5,  # control the rotation of the gripper
             ],
             dtype=np.float32,
         )

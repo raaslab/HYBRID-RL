@@ -12,8 +12,8 @@ from bc.dataset import DatasetConfig, RobomimicDataset
 from bc.bc_policy import StateBcPolicy, StateBcPolicyConfig
 from bc.bc_policy import BcPolicy, BcPolicyConfig
 from evaluate import run_eval_mp
-# from env.robosuite_wrapper import PixelRobosuite
-from env.scripts.ur3e_wrapper import UR3eEnvConfig, UR3eEnv
+from env.robosuite_wrapper import PixelRobosuite
+
 
 @dataclass
 class MainConfig(common_utils.RunConfig):
@@ -72,7 +72,7 @@ def run(cfg: MainConfig, policy):
                 cfg.policy,
             )
 
-    policy = policy.to("cpu")
+    policy = policy.to("cuda")
     print(common_utils.wrap_ruler("policy weights"))
     print(policy)
 
@@ -102,7 +102,7 @@ def run(cfg: MainConfig, policy):
 
         for _ in range(cfg.epoch_len):
             with stopwatch.time("sample"):
-                batch = dataset.sample_bc(cfg.batch_size, "cpu")
+                batch = dataset.sample_bc(cfg.batch_size, "cuda:0")
 
             with stopwatch.time("train"):
                 loss = policy.loss(batch)
@@ -163,7 +163,7 @@ def evaluate(policy, dataset: RobomimicDataset, seed, num_game):
     )
 
 
-def _load_model(weight_file, env: UR3eEnv, device, cfg: Optional[MainConfig] = None):
+def _load_model(weight_file, env: PixelRobosuite, device, cfg: Optional[MainConfig] = None):
     if cfg is None:
         cfg_path = os.path.join(os.path.dirname(weight_file), f"cfg.yaml")
         cfg = pyrallis.load(MainConfig, open(cfg_path, "r"))  # type: ignore
@@ -192,23 +192,22 @@ def load_model(weight_file, device, *, verbose=True):
     cfg = pyrallis.load(MainConfig, open(cfg_path, "r"))  # type: ignore
 
     assert not cfg.dataset.real_data
-    # env_params = dict(
-    #     env_name=cfg.task_name,
-    #     robots=cfg.robots,
-    #     episode_length=cfg.dataset.eval_episode_len,
-    #     reward_shaping=False,
-    #     image_size=cfg.image_size,
-    #     rl_image_size=cfg.rl_image_size,
-    #     camera_names=cfg.dataset.rl_cameras,
-    #     rl_cameras=cfg.dataset.rl_cameras,
-    #     device=device,
-    #     use_state=cfg.dataset.use_state,
-    #     obs_stack=cfg.dataset.obs_stack,
-    #     state_stack=cfg.dataset.state_stack,
-    #     prop_stack=cfg.dataset.prop_stack,
-    # )
-    env_params = UR3eEnvConfig()
-    env = UR3eEnv("cuda", env_params)  # type: ignore
+    env_params = dict(
+        env_name=cfg.task_name,
+        robots=cfg.robots,
+        episode_length=cfg.dataset.eval_episode_len,
+        reward_shaping=False,
+        image_size=cfg.image_size,
+        rl_image_size=cfg.rl_image_size,
+        camera_names=cfg.dataset.rl_cameras,
+        rl_cameras=cfg.dataset.rl_cameras,
+        device=device,
+        use_state=cfg.dataset.use_state,
+        obs_stack=cfg.dataset.obs_stack,
+        state_stack=cfg.dataset.state_stack,
+        prop_stack=cfg.dataset.prop_stack,
+    )
+    env = PixelRobosuite(**env_params)  # type: ignore
 
     if cfg.dataset.use_state:
         print(f"state_stack: {cfg.dataset.state_stack}, observation shape: {env.observation_shape}")
@@ -233,7 +232,7 @@ if __name__ == "__main__":
     sys.stdout = common_utils.Logger(log_path, print_to_stdout=True)
 
     if cfg.load_model is not None and cfg.load_model != "none":
-        policy = load_model(cfg.load_model, "cpu")[0]
+        policy = load_model(cfg.load_model, "cuda")[0]
     else:
         policy = None
 

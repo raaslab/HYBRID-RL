@@ -88,7 +88,9 @@ class TowelEEConfig:
     def __init__(self):
         # TODO: fix this
         self.init_ee_pos = [0.438, 0, 0.383]  # the home ee position
-        self.home = np.pi * np.array([0.0, -0.1, 0.0, -0.8, 0.0, 0.7, 0.0], dtype=np.float32)
+        self.home = np.array(
+            [-1.57, -1.57, -1.57, -1.57, 1.57, 1.57, 0], dtype=np.float32
+        )
 
         # limits
         self.pos_low = np.array([0.36, -0.15, 0.178])

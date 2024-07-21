@@ -69,7 +69,7 @@ if __name__ == "__main__":
     import time
     import common_utils
     import train_bc
-    import train_rl_edited
+    import train_rl
     from multi_process_eval import run_eval as mp_run_eval
     import rich.traceback
 
@@ -109,7 +109,7 @@ if __name__ == "__main__":
         if args.mode == "bc":
             agent, _, env_params = train_bc.load_model(weight, "cuda")
         elif args.mode == "rl":
-            agent, _, env_params = train_rl_edited.load_model(weight, "cuda")
+            agent, _, env_params = train_rl.load_model(weight, "cuda")
         else:
             assert False, f"unsupported mode: {args.mode}"
 

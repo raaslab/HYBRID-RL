@@ -113,7 +113,9 @@ class HangEEConfig:
     def __init__(self):
         # self.init_ee_pos = [0.5582, 0.0849, 0.3215]  # the home ee position
         self.init_ee_pos = [0.5, 0, 0.32]
-        self.home = np.pi * np.array([0.0, 0.0, 0.0, -0.75, 0.0, 0.75, 0.0], dtype=np.float32)
+        self.home = np.array(
+            [-1.57, -1.57, -1.57, -1.57, 1.57, 1.57, 0], dtype=np.float32
+        )
 
         self.finger_pos_low = np.array([0.43, -0.29, 0.00])
         self.finger_pos_high = np.array([0.57, 0.1, 0.24])

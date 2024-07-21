@@ -24,6 +24,7 @@ Batch = namedtuple("Batch", ["obs", "action"])
 
 root = os.path.dirname(os.path.dirname(__file__))
 DATASETS = {
+    "hardware": "release/data/real_robot/hardware.hdf5",
     "Assembly": "release/data/metaworld/Assembly_frame_stack_1_96x96_end_on_success/dataset.hdf5",
     "BoxClose": "release/data/metaworld/BoxClose_frame_stack_1_96x96_end_on_success/dataset.hdf5",
     "StickPull": "release/data/metaworld/StickPull_frame_stack_1_96x96_end_on_success/dataset.hdf5",

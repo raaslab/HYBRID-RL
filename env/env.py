@@ -159,18 +159,21 @@ class RobotEnv:
             rpy_delta = np.abs(curr_pose[3:6] - positions[3:6])   
             for angle in rpy_delta:
                 if abs(angle) > 0.75:
+                    print(f"Angle: {angle}")
+                    print(f"RPY input: {positions[3:6]}, RPY delta: {rpy_delta})")
                     raise ValueError("Angle difference is too large")
                 
             max_delta = (np.abs(curr_pose - np.array(positions))).max()
             print("max_delta", max_delta)   
             steps = min(int(max_delta / 0.001), 100)
 
-            self.update_desired_ee_pose(positions)
-            
-            # for pose in np.linspace(curr_pose, positions, steps):
-            #     print("pose", pose)
-            #     self.update_desired_ee_pose(pose)
-            #     time.sleep(0.001)
+            if not delta:
+                for pose in np.linspace(curr_pose, positions, steps):
+                    print("pose", pose)
+                    self.update_desired_ee_pose(pose)
+                    time.sleep(0.001)
+            else:
+                self.update_desired_ee_pose(positions)
 
         return True
             
