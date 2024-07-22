@@ -15,23 +15,6 @@ from env.robosuite_wrapper import PixelRobosuite
 from rl.q_agent import QAgent, QAgentConfig
 from rl import replay
 import train_bc
-from mw_main.waypoint_prediction_robosuite import WaypointPredictor
-import cv2
-from mw_main.mode_classifier_image import HybridResNet, device
-import torch.nn.functional as F
-
-
-
-def predict_action(model, agentview_image, prop):
-    with torch.no_grad():  # Ensure no gradients are computed during prediction
-        agentview_image = torch.tensor(agentview_image, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
-        prop = torch.tensor(prop, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
-        action = model(agentview_image, prop)
-    return action.numpy().flatten()
-
-
-
-
 
 
 @dataclass
@@ -82,7 +65,7 @@ class MainConfig(common_utils.RunConfig):
     num_train_step: int = 200000
     log_per_step: int = 5000
     # log
-    save_dir: str = "exps/rl/robomimic_test"
+    save_dir: str = "exps/rl/train_bc_run1"
     use_wb: int = 0
 
     def __post_init__(self):
@@ -127,15 +110,6 @@ class Workspace:
         self.work_dir = cfg.save_dir
         print(f"workspace: {self.work_dir}")
 
-
-
-        # Create a video window
-        self.window_name = 'Robomimic Environment'
-        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(self.window_name, 600, 600) 
-
-
-
         if from_main:
             common_utils.set_all_seeds(cfg.seed)
             sys.stdout = common_utils.Logger(cfg.log_path, print_to_stdout=True)
@@ -153,25 +127,6 @@ class Workspace:
         self.global_episode = 0
         self.train_step = 0
         self._setup_env()
-
-
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        # Action Predictor - Sparse
-        self.action_predictor = WaypointPredictor().cuda()
-        self.action_predictor.load_state_dict(torch.load("models/robosuite_waypoint.pth", map_location=device))
-        self.action_predictor.eval()    # set the model to evaluation mode
-
-
-        # Mode Predictor - Sparse Dense
-        self.classifier_model = HybridResNet()
-        self.classifier_model.load_state_dict(torch.load('models/robosuite_mode.pth', map_location=device))
-        self.classifier_model.to(device)
-        self.classifier_model.eval()
-
-
-
-
 
         print(self.train_env.observation_shape)
         self.agent = QAgent(
@@ -373,71 +328,18 @@ class Workspace:
             self.warm_up()
 
         stopwatch = common_utils.Stopwatch()
-        obs, image_obs = self.train_env.reset()
+        obs, _ = self.train_env.reset()
         self.replay.new_episode(obs)
         while self.global_step < self.cfg.num_train_step:
-
-            current_prop = obs['prop']
-            current_image = image_obs['agentview']      # torch.Size([3, 224, 224])
-
-            # _____Rendering Conversion______
-            # PyTorch Tensor to a NumPy array and transpose the dimensions
-            current_image_np = current_image.permute(1, 2, 0).cpu().numpy()
-            # Ensure image is in uint8 format
-            # if current_image_np.dtype != np.uint8:
-            #     current_image_np = (current_image_np * 255).astype(np.uint8)
-            mode_img_render = np.zeros((400,400))
-
-
-            current_image_resized = F.interpolate(current_image.unsqueeze(0), size=(96, 96), mode='bilinear', align_corners=False).squeeze(0)
-
-            mode = self.determine_mode(current_image_resized)
-
-            if mode == 'sparse':
-                with torch.no_grad():
-                    # print(current_image_resized.shape)
-                    # print(current_prop[:7].shape)
-                    action = self.action_predictor(torch.tensor(current_image_resized, dtype=torch.float32, device='cuda').unsqueeze(0),
-                                                   torch.tensor(current_prop[:7], dtype=torch.float32, device='cuda').unsqueeze(0).unsqueeze(-1)).squeeze(0)
-                    action = action.cpu().detach()
-
-                    # action = self.action_predictor(torch.tensor(current_image_resized, dtype=torch.float32, device='cuda'),torch.tensor(current_prop[:7], dtype=torch.float32, device='cuda'))
-
-            if mode == 'dense':
-                ### act ###
-                with stopwatch.time("act"), torch.no_grad(), utils.eval_mode(self.agent):
-                    stddev = utils.schedule(self.cfg.stddev_schedule, self.global_step)
-                    action = self.agent.act(obs, eval_mode=False, stddev=stddev)
-                    stat["data/stddev"].append(stddev)
+            ### act ###
+            with stopwatch.time("act"), torch.no_grad(), utils.eval_mode(self.agent):
+                stddev = utils.schedule(self.cfg.stddev_schedule, self.global_step)
+                action = self.agent.act(obs, eval_mode=False, stddev=stddev)
+                stat["data/stddev"].append(stddev)
 
             ### env.step ###
             with stopwatch.time("env step"):
                 obs, reward, terminal, success, image_obs = self.train_env.step(action)
-                # ----> Render the environment <----
-                try:
-                    # cv2.imshow(self.window_name, current_image_np)
-                    resized_np = current_image_resized.permute(1, 2, 0).cpu().numpy()
-                    cv2.imshow(self.window_name, resized_np)
-                    mode_img_render = cv2.putText(mode_img_render, mode, (mode_img_render.shape[1]//2 - 80, mode_img_render.shape[0]//2), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2, cv2.LINE_AA)
-                    if mode=="sparse":
-                        mode_img_render = cv2.putText(mode_img_render, f"0: {action[0]}", 
-                                               (50, mode_img_render.shape[0]//2+50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
-                        mode_img_render = cv2.putText(mode_img_render, f"1: {action[1]}", 
-                                               (50, mode_img_render.shape[0]//2+80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
-                        mode_img_render = cv2.putText(mode_img_render, f"2: {action[2]}", 
-                                               (50, mode_img_render.shape[0]//2+110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)                       
-                        mode_img_render = cv2.putText(mode_img_render, f"3: {action[3]}", 
-                                               (50, mode_img_render.shape[0]//2+140), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)                       
-                        mode_img_render = cv2.putText(mode_img_render, f"4: {action[4]}", 
-                                               (50, mode_img_render.shape[0]//2+170), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)                       
-                        mode_img_render = cv2.putText(mode_img_render, f"5: {action[5]}", 
-                                               (50, mode_img_render.shape[0]//2+200), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
-                        mode_img_render = cv2.putText(mode_img_render, f"6: {action[6]}", 
-                                               (50, mode_img_render.shape[0]//2+230), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)                       
-                    cv2.imshow("Mode",  mode_img_render)                    
-                    cv2.waitKey(1)
-                except Exception as e:
-                    print(f"Error rendering image: {e}")
 
             with stopwatch.time("add"):
                 assert isinstance(terminal, bool)
@@ -559,30 +461,6 @@ class Workspace:
             saved = saver.save(self.agent.state_dict(), score, save_latest=True)
             print(f"saved?: {saved}")
             print(common_utils.get_mem_usage())
-
-
-
-    def determine_mode(self, image):
-        # Ensure the image is in [C, H, W] format
-        if image.shape != (3, 96, 96):              # Assuming the expected shape is [C, H, W]
-            image = image.permute(2, 0, 1)  # Change from [H, W, C] to [C, H, W]
-        # prop = prop.to(device).float()
-
-        # # Extract only the last value of the prop tensor
-        # last_prop_value = prop[-1].unsqueeze(0)  # Adds an extra dimension to match batch size of 1
-
-        image = image.to(device).float()
-        if len(image.shape) == 3:
-            image = image.unsqueeze(0)
-
-        with torch.no_grad():
-            outputs = self.classifier_model(image)
-            predicted_mode = torch.argmax(outputs, dim=1).item()  # Returns 0 or 1
-        return 'sparse' if predicted_mode == 0 else 'dense'
-    
-
-
-
 
 
 def load_model(weight_file, device):

@@ -9,10 +9,14 @@ from env.drawer import DrawerEEConfig
 from env.hang import HangEEConfig
 from env.towel import TowelEEConfig
 
-from robots.ur import URRobot
+# from robots.ur import URRobot
 from zmq_core.robot_node import ZMQClientRobot
 from env.env import RobotEnv
 from robots.robotiq_gripper import RobotiqGripper
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional, Tuple
 
 import pyrallis
 try:
@@ -49,12 +53,33 @@ class ActionSpace:
 
 @dataclass
 class URTDEControllerConfig:
-    task: str = "drawer"
+    task: str = "lift"
     # robot_ip should be local because this runs on the nuc that connects to the robot
-    robot_ip_address: str = "localhost"
+    # robot_ip_address: str = "localhost"
     controller_type: str = "CARTESIAN_DELTA"
     max_delta: float = 0.06
     mock: int = 0
+
+    ## --------- Newly Added ----------- ##
+    agent: str = "ur"
+    hostname: str = "10.104.56.158"
+    # hostname: str = "192.168.77.243"
+    robot_port: int = 50003  # for trajectory
+    robot_ip: str = "192.168.77.21" 
+    robot_type: str = None  # only needed for quest agent or spacemouse agent
+    hz: int = 100
+    start_pose: Optional[Tuple[float, ...]] = None
+
+    use_save_interface: bool = False
+    data_dir: str = "~/bc_data"
+    verbose: bool = False
+    camera_clients = {
+    # you can optionally add camera nodes here for imitation learning purposes
+    # "wrist": ZMQClientCamera(port=args.wrist_camera_port, host=args.hostname),
+    # "base": ZMQClientCamera(port=args.base_camera_port, host=args.hostname),
+    }
+
+
 
 
 class URTDEController:
@@ -71,20 +96,22 @@ class URTDEController:
         [-0.5228, -1.308, -1.308, -1.308, 2.094, 2.094, 1], dtype=np.float32
     )
 
-    def __init__(self, cfg: URTDEControllerConfig) -> None:
+    def __init__(self, cfg: URTDEControllerConfig, task) -> None:
+        print("URTDE Controller Initialized...")
+
         self.cfg = cfg
         assert self.cfg.controller_type in {
             "CARTESIAN_DELTA",
             "CARTESIAN_IMPEDANCE",
         }
 
-        if cfg.task == "lift":
+        if task == "lift":
             self.ee_config = LiftEEConfig()
-        elif cfg.task == "drawer":  
+        elif task == "drawer":  
             self.ee_config = DrawerEEConfig()
-        elif cfg.task == "hang":
+        elif task == "hang":
             self.ee_config = HangEEConfig()
-        elif cfg.task == "towel":
+        elif task == "towel":
             self.ee_config = TowelEEConfig()
         else:
             assert False, "unknown env"
@@ -96,15 +123,18 @@ class URTDEController:
             self._gripper = MockGripper()
         else:
             assert URTDE_IMPORTED, "Attempted to load robot without URTDE package."
-            robot_client = ZMQClientRobot(port=args.robot_port, host=args.hostname)
-            self._robot = RobotEnv(robot_client, control_rate_hz=args.hz, camera_dict=args.camera_clients)
+            robot_client = ZMQClientRobot(port=cfg.robot_port, host=cfg.hostname)
+            self._robot = RobotEnv(robot_client, control_rate_hz=cfg.hz, camera_dict=cfg.camera_clients)
             self._gripper = RobotiqGripper()
-            self._gripper.connect(hostname=args.robot_ip, port=63352)
+            self._gripper.connect(hostname=cfg.robot_ip, port=63352)
             print("gripper connected")
 
+
+        print("Setting Home Position..")
         self._robot.set_home_pose(self.ee_config.home)
+        print("Going to Home Position..")
         self._robot.go_home(blocking=False)
-        print("home position", self.ee_config.home)
+        print(f"In home pose: joint_angles = {self.ee_config.home}")
 
         ee_pos = self._robot.get_ee_pose()
         print("current ee pos:", ee_pos)
@@ -191,7 +221,7 @@ class URTDEController:
         # self.update_gripper(gripper_action, blocking=False)
 
 
-    def reset(self, randomize: bool) -> None:
+    def reset(self, randomize: bool = False) -> None:
         print("reset env")
 
         self.update_gripper(0)  # open the gripper
@@ -219,7 +249,7 @@ class URTDEController:
         Returns the robot state dictionary.
         For VR support MUST include [ee_pos, ee_quat]
         """
-        ee_pos, ee_quat = self._robot.get_ee_pose()
+        ee_pos, ee_quat = np.split(self._robot.get_ee_pose(), [3])
         gripper_state = self._gripper.get_current_position()
         gripper_pos = 1 - (gripper_state / self._max_gripper_width) # 0 is open and 1 is closed
 
@@ -230,36 +260,37 @@ class URTDEController:
             "robot0_desired_gripper_qpos": [self.desired_gripper_qpos],
         }
 
-        return state
+        in_good_range = self.ee_config.ee_in_good_range(
+            state["robot0_eef_pos"], state["robot0_eef_quat"], True
+        )
+        return state, in_good_range
+
 
 import datetime
 import glob
-import time
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Optional, Tuple
 
 
-@dataclass
-class PolyMainConfig:
-    server: int = 1
-    server_loc: str = "local"  # local/fr2
-    controller: URTDEControllerConfig = field(
-        default_factory=lambda: URTDEControllerConfig()
-    )
 
-    goto: str = ""
-    goto_delta: int = 0
+# @dataclass
+# class PolyMainConfig:
+#     server: int = 1
+#     server_loc: str = "local"  # local/fr2
+#     controller: URTDEControllerConfig = field(
+#         default_factory=lambda: URTDEControllerConfig()
+#     )
 
-    def __post_init__(self):
-        address_book = {
-            "local": "tcp://192.168.77.243:50003",
-            "ur3e": "tcp://192.168.77.21:50003",
-        }
-        if self.server:
-            self.rpc_address = address_book["local"]
-        else:
-            self.rpc_address = address_book[self.server_loc]
+#     goto: str = ""
+#     goto_delta: int = 0
+
+#     def __post_init__(self):
+#         address_book = {
+#             "local": "tcp://192.168.77.243:50003",
+#             "ur3e": "tcp://192.168.77.21:50003",
+#         }
+#         if self.server:
+#             self.rpc_address = address_book["local"]
+#         else:
+#             self.rpc_address = address_book[self.server_loc]
 
 @dataclass
 class Args:
@@ -287,10 +318,10 @@ class Args:
 if __name__ == "__main__":
     args = Args()
     
-    cfg = pyrallis.parse(config_class=PolyMainConfig)  # type: ignore
+    # cfg = pyrallis.parse(config_class=PolyMainConfig)  # type: ignore
     np.set_printoptions(precision=4, linewidth=100, suppress=True)
 
-    controller = URTDEController(cfg.controller)
+    controller = URTDEController(args.controller, args.controller.task)
 
     time.sleep(3)
 

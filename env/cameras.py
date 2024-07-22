@@ -46,8 +46,10 @@ class OpenCVCamera(Camera):
             self._cap = cv2.VideoCapture(self.id)  # type: ignore
             # self._cap.set(cv2.CAP_PROP_EXPOSURE, -2)
             # values other than default 640x480 have not been tested yet
-            self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            # self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            # self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+            self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 320)
         return self._cap
 
     def get_frames(self):
@@ -87,9 +89,9 @@ class RealSenseCamera(Camera):
             self._pipeline = rs.pipeline()
             config = rs.config()
             config.enable_device(self.serial_number)
-            config.enable_stream(rs.stream.color, 640, 480, rs.format.rgb8, 30)
+            config.enable_stream(rs.stream.color, 640, 480, rs.format.rgb8, 15)
             if self.depth:
-                config.enable_stream(rs.stream.color, 640, 480, rs.format.z16, 30)
+                config.enable_stream(rs.stream.color, 320, 320, rs.format.z16, 15)
                 self.depth_filters = [rs.spatial_filter(), rs.temporal_filter()]
             self._pipeline.start(config)
             self.align = rs.align(rs.stream.color)
@@ -97,6 +99,20 @@ class RealSenseCamera(Camera):
             for _ in range(2):
                 self._pipeline.wait_for_frames()
         return self._pipeline
+
+
+    def crop_image(self, image, width, height):
+        crop_size = (width, height)
+        # Crop the image
+        h, w = image.shape[:2]
+        start_x = max(0, w//2 - crop_size[0]//2)
+        start_y = max(0, h//2 - crop_size[1]//2)
+        end_x = min(w, start_x + crop_size[0])
+        end_y = min(h, start_y + crop_size[1])
+        image = image[start_y:end_y, start_x:end_x]
+        return image
+
+
 
     def get_frames(self):
         if self.pipeline is None:
@@ -108,6 +124,9 @@ class RealSenseCamera(Camera):
         frames = self.pipeline.wait_for_frames()
         aligned_frames = self.align.process(frames)
         image = np.asanyarray(aligned_frames.get_color_frame().get_data())
+        
+        image = self.crop_image(image, 320, 320)
+        
         image = cv2.resize(image, (self.width, self.height), interpolation=cv2.INTER_AREA)
         frames = {"": image}
 
@@ -144,7 +163,7 @@ if __name__ == "__main__":
         # "left": RealSenseCamera("042222070680", height=224, width=224, depth=False),
         # "side-left": OpenCVCamera("/dev/video12", height=224, width=224, depth=False),
         # "side-right": OpenCVCamera("/dev/video14", height=224, width=224, depth=False),
-        "front": RealSenseCamera("838212072814", height=224, width=224, depth=False),
+        "corner2": RealSenseCamera("944622074035", height=224, width=224, depth=False),
         # "front": OpenCVCamera("/dev/video16", height=224, width=224, depth=False),
     }
 

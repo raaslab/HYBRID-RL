@@ -196,6 +196,7 @@ class URRobot(Robot):
         print("Entered command_eef_pose")
         try:
             self.robot.servoL(eef_pos_, velocity, acceleration, dt, lookahead_time, gain)
+            # self.robot.moveL(eef_pos_, a=0.25, v=0.25)
             if self._use_gripper:
                 gripper_pos = eef_pos[-1] * 255
                 self.gripper.move(gripper_pos, 255, 10)

@@ -18,7 +18,7 @@ Batch = namedtuple("Batch", ["obs", "action"])
 
 @dataclass
 class DatasetConfig:
-    path: str = ""
+    path: str = "release/data/real_robot/data_processed_half_4.hdf5"
     rl_camera: str = "robot0_eye_in_hand"
     num_data: int = -1
     max_len: int = -1

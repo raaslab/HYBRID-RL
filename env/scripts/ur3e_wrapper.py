@@ -14,13 +14,15 @@ from env.drawer import Drawer
 from env.hang import Hang
 from env.towel import Towel
 
-from urtde_controller2 import PolyMainConfig, Args
+from urtde_controller2 import Args
+import pyrallis
 
 _ROBOT_CAMERAS = {
     "ur3e": {
-        "agentview": "042222070680",
-        "robot0_eye_in_hand": "241222076578",
-        "frontview": "838212072814",
+        # "agentview": "042222070680",
+        # "robot0_eye_in_hand": "241222076578",
+        # "frontview": "838212072814",
+        "corner2": "944622074035",
     }
 }
 
@@ -28,21 +30,24 @@ PROP_KEYS = ["robot0_eef_pos", "robot0_eef_quat", "robot0_gripper_qpos"]
 
 @dataclass
 class UR3eEnvConfig:
-    task: str
+    task: str = "lift"
     episode_length: int = 200
     robot: str = "ur3e"  # ur3e, fr3
-    control_hz: float = 10.0
+    control_hz: float = 15.0
     image_size: int = 224
-    rl_image_size: int = 96
+    # rl_image_size: int = 96
+    rl_image_size: int = 224
     use_depth: int = 0
-    rl_camera: str = "robot0_eye_in_hand"
+    # rl_camera: str = "robot0_eye_in_hand"
+    rl_camera: str = "corner2"
     randomize: int = 0
-    show_camera: int = 0
+    show_camera: int = 1
     drop_after_terminal: int = 1
     record: int = 0
     save_dir: str = ""
 
     def __post_init__(self):
+        
         self.rl_cameras = self.rl_camera.split("+")
 
         if self.robot == "ur3e":
@@ -104,13 +109,13 @@ class UR3eEnv:
             self.resize_transform = utils.get_rescale_transform(cfg.rl_image_size)
 
         self.observation_shape: tuple[int, ...] = (3, cfg.rl_image_size, cfg.rl_image_size)
-        self.prop_shape: tuple[int] = (8,)
+        self.prop_shape: tuple[int] = (7,)
         args = Args()
     
-        cfg2 = pyrallis.parse(config_class=PolyMainConfig)  # type: ignore
+        # cfg2 = pyrallis.parse(config_class=PolyMainConfig)  # type: ignore
         np.set_printoptions(precision=4, linewidth=100, suppress=True)
 
-        self.controller = URTDEController(cfg2.controller)
+        self.controller = URTDEController(args.controller, cfg.task)
 
         self.action_dim = len(self.controller.action_space.low)
 
@@ -147,6 +152,7 @@ class UR3eEnv:
 
     def observe(self):
         props, in_good_range = self.controller.get_state()
+        # props = self.controller.get_state()
         if not in_good_range:
             print("Warning[UR3eEnv]: bad range, should have restarted")
 
@@ -168,7 +174,7 @@ class UR3eEnv:
             key = f"{name}"
             high_res_images[key] = image
 
-            rl_image_obs = torch.from_numpy(image).permute([2, 0, 1])
+            rl_image_obs = torch.from_numpy(image).permute([2, 0, 1]).to(self.device)
             if self.resize_transform is not None:
                 # set the device here because transform is 5x faster on GPU
                 rl_image_obs = self.resize_transform(rl_image_obs.to(self.device))
@@ -230,14 +236,17 @@ class UR3eEnv:
 
     def apply_action(self, action: torch.Tensor):
         # print(">>>>>>>>>>>>>>>>> apply action", action.size())
-        self.controller.update(action.numpy())
+        if isinstance(action, np.ndarray):
+            self.controller.update(action)
+        else:
+            self.controller.update(action.numpy())
         self.time_step += 1
         return
 
     # ============= gym style api for compatibility with data collection ============= #
     def reset(self) -> tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]]:
         """return observation and high resolution observation"""
-        print(f"{self.cfg.randomize=}")
+        # print(f"{self.cfg.randomize=}")
         self.controller.reset(randomize=bool(self.cfg.randomize))
 
         self.time_step = 0
@@ -246,7 +255,8 @@ class UR3eEnv:
         self.terminal = False
         self.video_frames = []
 
-        self.task.reset()
+        # self.task.reset()
+        # self.controller.reset()
         return self.observe(), {}
 
     # ============= gym style api for compatibility with data collection ============= #
@@ -259,10 +269,12 @@ class UR3eEnv:
 
         with Rate(self.cfg.control_hz):
             # print(f"[env] step: {self.time_step}")
+            # print(f"Action: {action.dim()}")
             assert action.dim() == 1, "multi-action open loop not supported yet"
             assert action.min() >= -1, action.min()
 
-            self.controller.update(action.numpy())
+            # self.controller.update(action.numpy())
+            self.apply_action(action.numpy())
             self.time_step += 1
 
         rl_obs = self.observe()
@@ -289,17 +301,26 @@ def test():
     env = UR3eEnv("cuda", cfg)
 
     env.reset()
+    # while True:
+    print("-------------------------")
     obs = env.observe()
     for k, v in obs.items():
         print(k, v.size())
 
-    with Rate(10.0):
-        action = np.random.random(7).astype(np.float32)
-        env.apply_action(action)
 
-    obs = env.observe()
-    for k, v in obs.items():
-        print(k, v.size())
+
+    action = np.array([0.0016, -0.0041, -0.0028, 0, 0, 0, 0.0497])    
+    env.apply_action(action)
+
+    # with Rate(10.0):
+    # print("--- Random Action ----")
+    # action_rand = np.random.uniform(low=-0.01, high=0.01, size=6).astype(np.float32)
+    # action = np.concatenate((action_rand, [0.0]))
+    # env.apply_action(action)
+
+    # obs = env.observe()
+    # for k, v in obs.items():
+    #     print(k, v.size())
 
 
 if __name__ == "__main__":

@@ -1,7 +1,6 @@
 task_name: "PickPlaceCan"
 rl_camera: "robot0_eye_in_hand"
 prop_stack: 3
-#episode_length: 200
 episode_length: 200
 stddev_max: 0.1
 bc_policy: "release/model/robomimic/can/model0.pt"

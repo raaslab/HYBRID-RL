@@ -132,7 +132,7 @@ class RobotEnv:
             max_delta = (np.abs(curr_joints - positions)).max()
             print("max_delta", max_delta)   
             steps = min(int(max_delta / 0.01), 100)
-            print("steps", steps)
+            print("Steps to reach home pose", steps)
         for jnt in np.linspace(curr_joints, positions, steps):
             self.step(jnt)
         return True
@@ -147,14 +147,14 @@ class RobotEnv:
         Returns:
             bool: True if the robot successfully moved to the specified positions, False otherwise.
         """
-        print("move_to_eef_positions")
+        # print("move_to_eef_positions")
         curr_pose = self._robot.get_observations()["ee_pos_quat"]
         gripper_pos = self._robot.get_observations()["gripper_position"]
 
         curr_pose = np.concatenate([curr_pose, gripper_pos])
         # print("curr_joints", curr_joints)
-        print("len(list(positions))", list(positions), "len(curr_joints)", curr_pose)
-        print("len(reset_pose)", len(positions), "len(curr_pose)", len(curr_pose))
+        # print("len(list(positions))", list(positions), "len(curr_joints)", curr_pose)
+        # print("len(reset_pose)", len(positions), "len(curr_pose)", len(curr_pose))
         if len(positions) == len(curr_pose):
             rpy_delta = np.abs(curr_pose[3:6] - positions[3:6])   
             for angle in rpy_delta:
@@ -164,7 +164,7 @@ class RobotEnv:
                     raise ValueError("Angle difference is too large")
                 
             max_delta = (np.abs(curr_pose - np.array(positions))).max()
-            print("max_delta", max_delta)   
+            # print("max_delta", max_delta)   
             steps = min(int(max_delta / 0.001), 100)
 
             if not delta:

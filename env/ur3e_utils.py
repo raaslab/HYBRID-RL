@@ -1,11 +1,20 @@
 import time
 
 class Rate:
-    def __init__(self, rate: float):
-        self.last = time.time()
-        self.rate = rate
+    def __init__(self, control_hz, slack_time=0.001):
+        self.control_hz = control_hz
+        self.slack_time = slack_time
 
-    def sleep(self) -> None:
-        while self.last + 1.0 / self.rate > time.time():
-            time.sleep(0.0001)
-        self.last = time.time()
+    def __enter__(self):
+        self.t_start = time.time()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        t_curr = time.time()
+        t_end = self.t_start + 1 / self.control_hz
+        t_wait = t_end - t_curr
+        if t_wait > 0:
+            t_sleep = t_wait - self.slack_time
+            if t_sleep > 0:
+                time.sleep(t_sleep)
+            while time.time() < t_end:
+                pass

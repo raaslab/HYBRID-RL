@@ -27,8 +27,10 @@ class Lift:
             pprint.pprint(curr_prop)
 
         # gripper_action = prev_action[-1]
-        desired_gripper_qpos = curr_prop["robot0_desired_gripper_qpos"].item()
-        real_gripper_qpos = curr_prop["robot0_gripper_qpos"].item()
+        # desired_gripper_qpos = curr_prop["robot0_desired_gripper_qpos"].item()
+        desired_gripper_qpos = np.array(curr_prop["robot0_desired_gripper_qpos"]).item()
+        # real_gripper_qpos = curr_prop["robot0_gripper_qpos"].item()
+        real_gripper_qpos = np.array(curr_prop["robot0_gripper_qpos"]).item()
         if desired_gripper_qpos <= 0.8:
             # gripper is not even closing
             if self.verbose:
@@ -97,8 +99,10 @@ class LiftEEConfig:
         )
 
         # limits
-        self.pos_low = np.array([0.45, -0.15, 0.19])
-        self.pos_high = np.array([0.65, 0.15, 0.4])
+        # self.pos_low = np.array([0.45, -0.15, 0.19])
+        self.pos_low = np.array([-0.157, -0.494, -0.017])
+        # self.pos_high = np.array([0.65, 0.15, 0.4])
+        self.pos_high = np.array([-0.009, -0.299, 0.139])
 
         self.rot_abs_min = np.pi * np.array([0.75, 0, 0.0]).astype(np.float32)
         self.rot_abs_max = np.pi * np.array([1, 0.25, 1]).astype(np.float32)
@@ -114,7 +118,7 @@ class LiftEEConfig:
         return pos, rot
 
     def ee_in_good_range(self, pos: np.ndarray, quat: np.ndarray, verbose):
-        rot = Rotation.from_quat(quat).as_euler("xyz")
+        # rot = Rotation.from_quat(quat).as_euler("xyz")
 
         if (pos <= self.pos_low - 0.02).any() or (pos >= self.pos_high + 0.02).any():
             if verbose:
@@ -123,13 +127,13 @@ class LiftEEConfig:
                 print(f"pos max: {self.pos_high + 0.02}")
             return False
 
-        rot_abs = np.abs(rot)
-        if (rot_abs <= self.rot_abs_min).any() or (rot_abs >= self.rot_abs_max).any():
-            if verbose:
-                print(f"bad rot: {rot}")
-                print(f"rot abs min: {self.rot_abs_min}")
-                print(f"rot abs max: {self.rot_abs_max}")
-            return False
+        # rot_abs = np.abs(rot)
+        # if (rot_abs <= self.rot_abs_min).any() or (rot_abs >= self.rot_abs_max).any():
+        #     if verbose:
+        #         print(f"bad rot: {rot}")
+        #         print(f"rot abs min: {self.rot_abs_min}")
+        #         print(f"rot abs max: {self.rot_abs_max}")
+        #     return False
 
         return True
 
