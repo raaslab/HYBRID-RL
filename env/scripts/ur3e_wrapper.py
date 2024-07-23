@@ -16,6 +16,8 @@ from env.towel import Towel
 
 from urtde_controller2 import Args
 import pyrallis
+from scipy.spatial.transform import Rotation as R
+
 
 _ROBOT_CAMERAS = {
     "ur3e": {
@@ -27,6 +29,18 @@ _ROBOT_CAMERAS = {
 }
 
 PROP_KEYS = ["robot0_eef_pos", "robot0_eef_quat", "robot0_gripper_qpos"]
+
+
+# Euler - Quat Conversion Functions
+def eul_2_quat(rpy):
+    rotation = R.from_rotvec(rpy)
+    return rotation.as_quat()
+
+def quat_2_eul(quat):
+    rotation = R.from_quat(quat)
+    return rotation.as_euler('xyz', degrees=False)
+
+
 
 @dataclass
 class UR3eEnvConfig:
@@ -155,6 +169,12 @@ class UR3eEnv:
         # props = self.controller.get_state()
         if not in_good_range:
             print("Warning[UR3eEnv]: bad range, should have restarted")
+
+        # # ----- Convert Euler to Quat ------ #
+        # quat = eul_2_quat(props['robot0_eef_quat'])
+        # props["robot0_eef_quat"] = quat
+        # # --------------------------------- #
+
 
         prop = torch.from_numpy(
             np.concatenate([props[prop_key] for prop_key in PROP_KEYS]).astype(np.float32)

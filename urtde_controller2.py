@@ -191,7 +191,12 @@ class URTDEController:
         #     self._robot.start_cartesian_impedance()
         #     time.sleep(1)
         '''
-        assert self.action_space.assert_in_range(action)
+        # print(self.action_space.assert_in_range(action))
+        # assert self.action_space.assert_in_range(action)
+        if self.action_space.assert_in_range(action):
+            pass
+        else:
+            return
 
         robot_action: np.ndarray = np.array(action[:-1])
         gripper_action: float = action[-1]
@@ -206,14 +211,21 @@ class URTDEController:
             # TODO: this can be made much faster using purpose build methods instead of scipy.
             # new_rot = (delta_ori * ee_ori).astype(np.float32)
             # new_rot = ee_ori + delta_ori
-            new_rot = ee_ori
+            # new_rot = ee_ori
+            
+            new_rot = np.array([2.223, 2.219, 0.0018])
 
             # clip
             # new_pos, new_rot = self.ee_config.clip(new_pos, new_rot)
             end_eff_pos = np.concatenate((new_pos, new_rot, [gripper_action]))
             print(f"Abs Pose: {end_eff_pos}")
-            self._robot.move_to_eef_positions(end_eff_pos, delta=True)
 
+            # Check if in good range
+            # in_good_range = self.ee_config.ee_in_good_range(end_eff_pos[:3], end_eff_pos[3:6])
+            # if in_good_range:
+            self._robot.move_to_eef_positions(end_eff_pos, delta=True)
+            # else:
+                # print("Action Skipped due to out of range")
         else:
             raise ValueError("Invalid Controller type provided")
 

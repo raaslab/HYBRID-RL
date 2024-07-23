@@ -115,7 +115,6 @@ class ReplayBuffer:
         transition = self.episode.pop_transition()
         self.replay.add(transition)
         self.num_episode += 1
-
         if not success:
             return
         self.num_success += 1
@@ -284,13 +283,15 @@ def add_demos_to_replay(
             success = bool(rewards[action_idx] == 1)
             terminal = bool(terminals[action_idx])
 
+            print(f"i am {i}")
+            # print(f"obs: {obs.shape}, reply: {reply}, reward: {reward}, success: {success}, terminal: {terminal}")
             replay.add(obs, reply, reward, terminal, success, image_obs={})
-
+            print(i)
             if success:
                 assert terminal
             if terminal:
                 break
-
+            
     print(f"Size of the replay buffer: {replay.size()}, # success: {replay.num_success}")
     if replay.bc_replay is not None:
         print(f"Size of the bc_replay buffer: {replay.bc_replay.size()}")
@@ -310,7 +311,7 @@ if __name__ == "__main__":
         max_episode_length=200,
         replay_size=100,
         use_bc=True,
-        save_per_success=-1,
+        save_per_success=-1,    
         save_dir=None,
     )
     rl_camera = "robot0_eye_in_hand"

@@ -24,7 +24,8 @@ class QAgentConfig:
     stddev_clip: float = 0.3
     # encoder
     use_prop: int = 0
-    enc_type: str = "vit"
+    # enc_type: str = "vit"
+    enc_type: str = "resnet"
     vit: VitEncoderConfig = field(default_factory=lambda: VitEncoderConfig())
     resnet: ResNetEncoderConfig = field(default_factory=lambda: ResNetEncoderConfig())
     resnet96: ResNet96EncoderConfig = field(default_factory=lambda: ResNet96EncoderConfig())
@@ -34,7 +35,8 @@ class QAgentConfig:
     state_critic: MultiFcQConfig = field(default_factory=lambda: MultiFcQConfig())
     state_actor: FcActorConfig = field(default_factory=lambda: FcActorConfig())
     # algo
-    act_method: str = "rl"  # "rl/ibrl/ibrl_soft"
+    # act_method: str = "rl"  # "rl/ibrl/ibrl_soft"
+    act_method: str = "ibrl"  # "rl/ibrl/ibrl_soft"
     bootstrap_method: str = ""  # "rl/ibrl/ibrl_soft"
     # ibrl
     ibrl_eps_greedy: float = 1
