@@ -43,8 +43,8 @@ class MainConfig(common_utils.RunConfig):
     episode_length: int = 200
     end_on_success: int = 1
     # render image in higher resolution for recording or using pretrained models
-    image_size: int = 224
-    rl_image_size: int = 224
+    image_size: int = 96
+    rl_image_size: int = 96
     rl_camera: str = "corner2"
     obs_stack: int = 1
     prop_stack: int = 1
@@ -58,10 +58,10 @@ class MainConfig(common_utils.RunConfig):
     nstep: int = 3
     discount: float = 0.99
     replay_buffer_size: int = 500
-    batch_size: int = 256
+    batch_size: int = 128
     num_critic_update: int = 1
     update_freq: int = 2
-    bc_policy: str = "exps/bc/real_robot_2024_07_20_21_01_54/model1.pt"
+    bc_policy: str = "exps/bc/real_robot_2024_07_23_15_58_18/model1.pt"
     # rl with preload data
     mix_rl_rate: float = 1  # 1: only use rl, <1, mix in some bc data
     preload_num_data: int = 0
@@ -81,7 +81,7 @@ class MainConfig(common_utils.RunConfig):
     save_per_success: int = -1
     mp_eval: int = 0  # eval with multiprocess
     num_train_step: int = 200000
-    log_per_step: int = 5000
+    log_per_step: int = 500
     # log
     save_dir: str = "exps/rl/robomimic_test"
     use_wb: int = 0
@@ -407,7 +407,7 @@ class Workspace:
                 print("terminal is true")
                 num_episode += 1
                 total_reward += self.eval_env.episode_reward
-            #     # break
+                # break
 
         print(f"Warm up done. #episode: {self.replay.size()}")
         print(f"#episode from warmup: {num_episode}, #reward: {total_reward}")

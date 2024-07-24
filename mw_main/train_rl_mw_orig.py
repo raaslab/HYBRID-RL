@@ -19,7 +19,7 @@ from eval_mw import run_eval
 
 
 BC_POLICIES = {
-    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/augmented_data_seed_2_Assembly/model1.pt",
+    "assembly": "release/model/metaworld/pathAssembly_num_data3_num_epoch2_seed1/model1.pt",
     "boxclose": "/home/amisha/ibrl/exps/bc/metaworld/augmented_data_seed_2_BoxClose/model1.pt",
     "coffeepush": "/home/amisha/ibrl/exps/bc/metaworld/augmented_data_seed_2_CoffeePush/model1.pt",
     "stickpull": "/home/amisha/ibrl/exps/bc/metaworld/augmented_data_seed_2_StickPull/model1.pt",

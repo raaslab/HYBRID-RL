@@ -87,6 +87,12 @@ class LiftEEConfig:
         self.init_ee_pos = [0.5, 0, 0.32]
         self.home = np.array(
             [
+                # np.deg2rad(-87.5),
+                # np.deg2rad(-114.5),
+                # np.deg2rad(-73.28),
+                # np.deg2rad(-82.21),
+                # np.deg2rad(90.07),
+                # np.deg2rad(92.48),
                 -1.57,  # 1st joint (from base), horizontal, negative: rotate clockwise
                 -1.57,  # 2nd joint, vertical, negative: go up, positive: go down
                 -1.57,  # 3rd joint, horizontal,

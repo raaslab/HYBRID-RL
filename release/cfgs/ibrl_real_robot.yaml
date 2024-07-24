@@ -1,7 +1,7 @@
 episode_length: 100
 stddev_max: 0.1
 # bc_policy: "assembly"
-preload_num_data: 1
+preload_num_data: 2
 env_reward_scale: 1
 num_train_step: 8000
 replay_buffer_size: 500

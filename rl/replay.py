@@ -113,7 +113,10 @@ class ReplayBuffer:
 
     def _push_episode(self, success):
         transition = self.episode.pop_transition()
+        print("push 1")
+        print(self.replay)
         self.replay.add(transition)
+        print("push 2")
         self.num_episode += 1
         if not success:
             return
@@ -284,9 +287,10 @@ def add_demos_to_replay(
             terminal = bool(terminals[action_idx])
 
             print(f"i am {i}")
-            # print(f"obs: {obs.shape}, reply: {reply}, reward: {reward}, success: {success}, terminal: {terminal}")
+            print(f"obs: {obs.keys()}, reply: {reply}, reward: {reward}, success: {success}, terminal: {terminal}")
             replay.add(obs, reply, reward, terminal, success, image_obs={})
             print(i)
+            print("\n")
             if success:
                 assert terminal
             if terminal:

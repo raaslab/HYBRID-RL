@@ -40,11 +40,11 @@ class MainConfig(common_utils.RunConfig):
     seed: int = 1
     # env
     task_name: str = "lift"
-    episode_length: int = 200
+    episode_length: int = 100
     end_on_success: int = 1
     # render image in higher resolution for recording or using pretrained models
-    image_size: int = 224
-    rl_image_size: int = 224
+    image_size: int = 96
+    rl_image_size: int = 96
     rl_camera: str = "corner2"
     obs_stack: int = 1
     prop_stack: int = 1
@@ -58,14 +58,16 @@ class MainConfig(common_utils.RunConfig):
     nstep: int = 3
     discount: float = 0.99
     replay_buffer_size: int = 500
-    batch_size: int = 256
+    batch_size: int = 128
     num_critic_update: int = 1
     update_freq: int = 2
-    bc_policy: str = "exps/bc/real_robot_2024_07_20_21_01_54/model1.pt"
+    bc_policy: str = "exps/bc/real_robot_2024_07_23_15_58_18/model1.pt"
+    # bc_policy: str = "exps/bc/real_robot_2024_07_20_21_01_54/model1.pt"
     # rl with preload data
     mix_rl_rate: float = 1  # 1: only use rl, <1, mix in some bc data
     preload_num_data: int = 0
-    preload_datapath: str = "release/data/real_robot/data_processed_half_4.hdf5"
+    preload_datapath: str = "release/data/real_robot/data_processed_half_image96.hdf5"
+    # preload_datapath: str = "release/data/robomimic/can/processed_data96.hdf5"
     freeze_bc_replay: int = 1
     # pretrain rl policy with bc and finetune
     pretrain_only: int = 1
@@ -418,13 +420,13 @@ class Workspace:
                 action = self.agent.act(obs, eval_mode=False, stddev=stddev)
                 stat["data/stddev"].append(stddev)
 
-                action = filter_action(action)
+                inp_action = filter_action(action)
             
-            print(f"Train Action {self.train_step}: {action}")
+            print(f"Train Action {self.train_step}: {inp_action}")
 
             ### env.step ###
             with stopwatch.time("env step"):
-                obs, reward, terminal, success, image_obs = self.train_env.step(action)
+                obs, reward, terminal, success, image_obs = self.train_env.step(inp_action)
             
                 obs = filter_obs(obs)
 
