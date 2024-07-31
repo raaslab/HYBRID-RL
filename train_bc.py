@@ -21,11 +21,11 @@ class MainConfig(common_utils.RunConfig):
     state_policy: StateBcPolicyConfig = field(default_factory=lambda: StateBcPolicyConfig())
     policy: BcPolicyConfig = field(default_factory=lambda: BcPolicyConfig())
     # training
-    seed: int = 3
+    seed: int = 1
     load_model: str = "none"
     num_epoch: int = 20
-    epoch_len: int = 10000
-    batch_size: int = 256
+    epoch_len: int = 500
+    batch_size: int = 32
     lr: float = 1e-4
     grad_clip: float = 5
     weight_decay: float = 0
@@ -37,7 +37,7 @@ class MainConfig(common_utils.RunConfig):
     image_size: int = -1
     rl_image_size: int = -1
     # log
-    save_dir: str = "exps/bc/run1"
+    save_dir: str = "exps/bc/real_robot"
     use_wb: int = 0
     save_per: int = -1
 
@@ -237,3 +237,9 @@ if __name__ == "__main__":
         policy = None
 
     run(cfg, policy=policy)
+
+    
+
+    
+    
+    
