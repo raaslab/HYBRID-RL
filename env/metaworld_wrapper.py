@@ -376,7 +376,7 @@ class PixelMetaWorld:
         # Add observation stacking for specified number of steps
         self.env = StackObsWrapper(env=self.env, obs_stack=obs_stack, frame_stack=frame_stack)
         # Overwrite environment rewards with sparse rewards
-        # self.env = SparseRewardWrapper(env=self.env)
+        self.env = SparseRewardWrapper(env=self.env)
         # Set max horizon --> if we get to episode_length steps, done is True
         if episode_length is not None:
             self.env = TimeLimitWrapper(env=self.env, max_episode_steps=episode_length)
