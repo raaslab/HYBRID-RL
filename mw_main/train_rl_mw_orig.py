@@ -8,6 +8,7 @@ import pprint
 import pyrallis
 import torch
 import numpy as np
+import cv2 
 
 import common_utils
 from common_utils import ibrl_utils as utils
@@ -19,9 +20,9 @@ from eval_mw import run_eval
 
 
 BC_POLICIES = {
-    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_2_Assembly/model1.pt",
+    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_Assembly/model1.pt",
     "boxclose": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_2_BoxClose/model1.pt",
-    "coffeepush": "/home/amisha/ibrl/exps/bc/metaworld/augmented_data_seed_2_CoffeePush/model1.pt",
+    "coffeepush": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_2_CoffeePush/model1.pt",
     "stickpull": "/home/amisha/ibrl/exps/bc/metaworld/augmented_data_seed_2_StickPull/model1.pt",
 }
 
@@ -35,7 +36,7 @@ BC_DATASETS = {
 
 @dataclass
 class MainConfig(common_utils.RunConfig):
-    seed: int = 3
+    seed: int = 1
     # env
     episode_length: int = 200
     # agent
@@ -75,7 +76,7 @@ class MainConfig(common_utils.RunConfig):
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
             dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
 
-        self.save_dir = f"exps/rl/metaworld/ibrl/ibrl_random_eval/ibrl_seed{self.seed}_{dataset_name}_rand"
+        self.save_dir = f"exps/rl/metaworld/ibrl/ibrl_seed{self.seed}_{dataset_name}"
         # self.save_dir = f"exps/rl/metaworld/ibrl/no_randomize_evaluation"
         self.preload_datapath = BC_DATASETS.get(self.bc_policy, "")
 
@@ -88,6 +89,14 @@ class Workspace:
     def __init__(self, cfg: MainConfig):
         self.work_dir = cfg.save_dir
         print(f"workspace: {self.work_dir}")
+
+
+        # Create a video window
+        self.window_name = 'Metaworld Environment'
+        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(self.window_name, 600, 600) 
+
+
 
         common_utils.set_all_seeds(cfg.seed)
         sys.stdout = common_utils.Logger(cfg.log_path, print_to_stdout=True)
@@ -253,6 +262,13 @@ class Workspace:
             ### env.step ###
             with stopwatch.time("env step"):
                 obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
+                # ----> Render the environment <----
+                try:
+                    img = self.train_env.env.env.render(mode='rgb_array')                     
+                    cv2.imshow(self.window_name,  cv2.cvtColor(img, cv2.COLOR_BGR2RGB))                    
+                    cv2.waitKey(1)
+                except Exception as e:
+                    print(f"Error rendering image: {e}")  
 
             with stopwatch.time("add"):
                 assert isinstance(terminal, bool)

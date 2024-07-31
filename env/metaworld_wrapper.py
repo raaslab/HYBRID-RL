@@ -2,7 +2,7 @@ import re
 import torch
 import numpy as np
 import collections
-from env.AssembleDisassemble import AssembleDisassembleEnv
+
 try:
     import gym
     import metaworld
@@ -22,7 +22,6 @@ GOOD_CAMERAS = {
     "StickPull": ["corner2"],
     "PegInsertSide": ["corner2"],
     "Soccer": ["corner2"],
-    "AssembleDisassembler":["corner2"],
 }
 DEFAULT_CAMERA = "corner2"
 
@@ -38,7 +37,6 @@ STATE_IDXS = {
     "StickPull": list(range(39)),
     "PegInsertSide": list(range(39)),
     "Soccer": list(range(39)),
-    "AssembleDisassembler":list(range(39)),
 }
 STATE_SHAPE = {env_name: (len(STATE_IDXS[env_name]),) for env_name in STATE_IDXS.keys()}
 
@@ -58,7 +56,6 @@ PROP_IDXS = {
     "HandInsert": list(range(4)),
     "PegInsertSide": list(range(4)),
     "Soccer": list(range(4)),
-    "AssembleDisassembler":list(range(4)),
 }
 PROP_SHAPE = {env_name: (len(PROP_IDXS[env_name]),) for env_name in STATE_IDXS.keys()}
 
@@ -78,22 +75,14 @@ class MetaWorldEnv(gym.Env):
         randomize_start
     ):
         self.env_name = env_name
-        # Check for custom environment
-        if env_name == "AssembleDisassemble":
-            self.env = AssembleDisassembleEnv()
-        else:
-            # Convert, e.g., CoffeePush to coffee-push
-            env_id = re.sub(r"([a-z])([A-Z])", r"\1-\2", self.env_name).lower()
-            env_id = f"{env_id}-v2-goal-observable"
-            env_cls = metaworld.envs.ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE[env_id]
-            self.env = env_cls()
-        # # Convert, e.g., CoffeePush to coffee-push
-        # env_id = re.sub(r"([a-z])([A-Z])", r"\1-\2", self.env_name).lower()
-        # env_id = f"{env_id}-v2-goal-observable"
-        # # for x in metaworld.envs.ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE:
-        # #     print(x)
-        # env_cls = metaworld.envs.ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE[env_id]
-        # self.env = env_cls()
+
+        # Convert, e.g., CoffeePush to coffee-push
+        env_id = re.sub(r"([a-z])([A-Z])", r"\1-\2", self.env_name).lower()
+        env_id = f"{env_id}-v2-goal-observable"
+        # for x in metaworld.envs.ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE:
+        #     print(x)
+        env_cls = metaworld.envs.ALL_V2_ENVIRONMENTS_GOAL_OBSERVABLE[env_id]
+        self.env = env_cls()
 
         # Ensures that every time `reset` is called, the goal position is randomized
         self.env._freeze_rand_vec = False
@@ -364,7 +353,7 @@ class PixelMetaWorld:
         use_state=False,
         randomize_start = False,
     ):
-        assert robots == None or robots == [] or robots == "Sawyer" or robots == ["Sawyer"]
+        assert robots == None or robots == [] or robots == "Sawyer" or robots == ["Sawyer"] or robots ==["ur3e"]
         assert reward_shaping == False, "reward_shaping is not a supported argument"
 
         assert isinstance(camera_names, list)
@@ -387,7 +376,7 @@ class PixelMetaWorld:
         # Add observation stacking for specified number of steps
         self.env = StackObsWrapper(env=self.env, obs_stack=obs_stack, frame_stack=frame_stack)
         # Overwrite environment rewards with sparse rewards
-        self.env = SparseRewardWrapper(env=self.env)
+        # self.env = SparseRewardWrapper(env=self.env)
         # Set max horizon --> if we get to episode_length steps, done is True
         if episode_length is not None:
             self.env = TimeLimitWrapper(env=self.env, max_episode_steps=episode_length)
@@ -498,9 +487,14 @@ class PixelMetaWorld:
         rl_obs, image_obs = self._extract_images(obs)
         self.episode_reward += reward
 
-        if self.end_on_success and (reward == 1):
+        # if self.end_on_success and (reward == 1):
+        #     terminal = True
+        # success = reward == 1
+
+        # For dense reward
+        if self.end_on_success and (float(info['success']) == 1):
             terminal = True
-        success = reward == 1
+        success = float(info['success']) == 1   
 
         reward = reward * self.env_reward_scale
         if self.reward_model is not None:
