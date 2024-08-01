@@ -114,7 +114,8 @@ class RealSenseCamera(Camera):
 
 
 
-    def get_frames(self):
+    # def get_frames(self):
+    def get_frames(self, cam_name):
         if self.pipeline is None:
             image = np.random.random((self.width, self.height, 3))
             image = (image * 255).astype(np.uint8)
@@ -125,7 +126,14 @@ class RealSenseCamera(Camera):
         aligned_frames = self.align.process(frames)
         image = np.asanyarray(aligned_frames.get_color_frame().get_data())
         
-        image = self.crop_image(image, 320, 320)
+        if cam_name == "eye_in_hand":
+            print(f"eye_in_hand crop: {(480, 480)}")
+            image = self.crop_image(image, 480, 480)      
+        elif cam_name == "corner2":
+            print(f"corner2 crop: {(320, 320)}")
+            image = self.crop_image(image, 320, 320)      # Original
+        # image = self.crop_image(image, 480, 480)
+        # image = self.crop_image(image, 640, 640)
         
         image = cv2.resize(image, (self.width, self.height), interpolation=cv2.INTER_AREA)
         frames = {"": image}
@@ -164,6 +172,7 @@ if __name__ == "__main__":
         # "side-left": OpenCVCamera("/dev/video12", height=224, width=224, depth=False),
         # "side-right": OpenCVCamera("/dev/video14", height=224, width=224, depth=False),
         "corner2": RealSenseCamera("944622074035", height=224, width=224, depth=False),
+        "eye_in_hand": RealSenseCamera("032622072103", height=224, width=224, depth=False),
         # "front": OpenCVCamera("/dev/video16", height=224, width=224, depth=False),
     }
 

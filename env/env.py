@@ -161,7 +161,11 @@ class RobotEnv:
                 if abs(angle) > 0.75:
                     print(f"Angle: {angle}")
                     print(f"RPY input: {positions[3:6]}, RPY delta: {rpy_delta})")
-                    raise ValueError("Angle difference is too large")
+
+                    # -- Fail Safe Disabled - temporarily --
+                    print("[Angle difference is too large] >/>/>/>/>/>/>/>/... Inverting Orientation")
+                    positions[3:6] = curr_pose[3:6]
+                    # raise ValueError("Angle difference is too large")
                 
             max_delta = (np.abs(curr_pose - np.array(positions))).max()
             # print("max_delta", max_delta)   

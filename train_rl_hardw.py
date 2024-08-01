@@ -12,13 +12,17 @@ import common_utils
 from common_utils import ibrl_utils as utils
 from evaluate import run_eval, run_eval_mp
 from env.robosuite_wrapper import PixelRobosuite
-from rl.q_agent import QAgent, QAgentConfig
+from rl.q_agent_dual import QAgent, QAgentConfig
 from rl import replay
 import train_bc
 from env.scripts.ur3e_wrapper import UR3eEnv, UR3eEnvConfig
 from bc.bc_policy import BcPolicy, BcPolicyConfig
 from bc.dataset import DatasetConfig, RobomimicDataset
 import time
+
+
+from pynput import keyboard
+
 
 
 def filter_obs(obs):
@@ -28,6 +32,8 @@ def filter_obs(obs):
 
 def filter_action(action):        
     action = action.numpy().flatten()
+    if action[3:] < 0: # if Gripper value is negative, set it to 0
+        action[3:] = 0.0
     action = np.concatenate((action[:3], np.array([0, 0, 0]), action[3:]))
     return torch.tensor(action)
 
@@ -39,13 +45,13 @@ class MainConfig(common_utils.RunConfig):
     policy: BcPolicyConfig = field(default_factory=lambda: BcPolicyConfig())
     seed: int = 1
     # env
-    task_name: str = "lift"
-    episode_length: int = 100
+    task_name: str = "two_stage"
+    episode_length: int = 250
     end_on_success: int = 1
     # render image in higher resolution for recording or using pretrained models
     image_size: int = 96
     rl_image_size: int = 96
-    rl_camera: str = "corner2"
+    rl_camera: str = "corner2+eye_in_hand"
     obs_stack: int = 1
     prop_stack: int = 1
     state_stack: int = 1
@@ -61,12 +67,12 @@ class MainConfig(common_utils.RunConfig):
     batch_size: int = 128
     num_critic_update: int = 1
     update_freq: int = 2
-    bc_policy: str = "exps/bc/real_robot_2024_07_23_15_58_18/model1.pt"
-    # bc_policy: str = "exps/bc/real_robot_2024_07_20_21_01_54/model1.pt"
+    # bc_policy: str = "exps/bc/real_robot_2024_07_23_15_58_18/model1.pt"
+    bc_policy: str = "exps/2S/real_robot_dual2S_b32_2024_07_29_22_27_21/model1.pt"
     # rl with preload data
     mix_rl_rate: float = 1  # 1: only use rl, <1, mix in some bc data
     preload_num_data: int = 0
-    preload_datapath: str = "release/data/real_robot/data_processed_half_image96.hdf5"
+    preload_datapath: str = "release/data/real_robot_2S/data_2S.hdf5"
     # preload_datapath: str = "release/data/robomimic/can/processed_data96.hdf5"
     freeze_bc_replay: int = 1
     # pretrain rl policy with bc and finetune
@@ -82,11 +88,12 @@ class MainConfig(common_utils.RunConfig):
     num_eval_episode: int = 10
     save_per_success: int = -1
     mp_eval: int = 0  # eval with multiprocess
-    num_train_step: int = 8000
-    log_per_step: int = 5000
+    num_train_step: int = 20000
+    log_per_step: int = 1000
     # log
-    save_dir: str = "exps/rl/train_rl_hardw_run1"
+    save_dir: str = "exps/rl/train_rl_hardw_ibrl_two_stage"
     use_wb: int = 0
+    
 
     def __post_init__(self):
         self.rl_cameras = self.rl_camera.split("+")
@@ -151,6 +158,7 @@ class Workspace:
         print("Observations: ",self.train_env.observation_shape)
         print("Prop: ", self.train_env.prop_shape)
         print("Action dim: ", self.train_env.action_dim)
+        print("Using Cam for QAgent: ", "eye_in_hand") 
         self.agent = QAgent(
             self.cfg.use_state,
             self.train_env.observation_shape,
@@ -158,7 +166,8 @@ class Workspace:
             (4,),
             # self.train_env.action_dim,
             4, 
-            self.cfg.rl_camera,
+            self.cfg.rl_cameras,
+            # "eye_in_hand",
             cfg.q_agent,
         )
 
@@ -182,6 +191,12 @@ class Workspace:
         print("BC Policy Loaded..!")
         self._setup_replay()
 
+
+        # Keyboard listen for terminating
+        self.terminate_episode = False
+        self.listener = keyboard.Listener(on_press=self.on_press)
+        self.listener.start()
+
     def _setup_env(self):
         self.rl_cameras: list[str] = list(set(self.cfg.rl_cameras + self.cfg.bc_cameras))
         if self.cfg.use_state:
@@ -189,7 +204,7 @@ class Workspace:
         print(f"rl_cameras: {self.rl_cameras}")
 
         if self.cfg.save_per_success > 0:
-            for cam in ["agentview", "robot0_eye_in_hand"]:
+            for cam in ["corner2", "eye_in_hand"]:
                 if cam not in self.rl_cameras:
                     print(f"Adding {cam} to recording camera because {self.cfg.save_per_success=}")
                     self.rl_cameras.append(cam)
@@ -208,7 +223,7 @@ class Workspace:
             rl_image_size=self.cfg.rl_image_size,
             # camera_names=self.rl_cameras,
             # rl_cameras=self.rl_cameras,
-            rl_camera="corner2",
+            rl_camera="corner2+eye_in_hand",
             randomize = 0,
             # use_state=self.cfg.use_state,
             # obs_stack=self.obs_stack,
@@ -348,11 +363,49 @@ class Workspace:
         total_reward = 0
         num_episode = 0
         steps = 0
+
+        reached_z_max = False
+        reached_z_min = False
+        bc_takeover = False
         while True:
             if self.bc_policy is not None:
                 # we have a BC policy
                 with torch.no_grad(), utils.eval_mode(self.bc_policy):
                     action = self.bc_policy.act(obs, eval_mode=True)
+
+
+                ## -------- Extra Layer --------------- ##
+                # Check if the has reached z_min [overwrite gripper action]
+                z_min = 0.009
+                x, y, z, g = obs['prop'][0] + action.to("cuda")
+                print(f"x: {x}, y: {y}, z: {z}, g: {g}")
+                if z <= z_min:
+                    action[2] = 0.005
+                    reached_z_min = True
+
+                if reached_z_min:
+                    action[3] = 0.6
+
+                
+                # Check if reached z_max and push to a waypoint 
+                z_max = 0.11
+
+                if reached_z_max and bc_takeover == False:
+                    action[0] = -0.05
+                    action[1] = -0.03
+                    # action[2] = 0.14 - obs['prop'][0][2]
+                    # go_pose = np.array([-0.23, -0.35, 0.14, 3.14, 0.00, 0.002, action[3]])
+                    # self.train_env.controller._robot.move_to_eef_positions(go_pose, delta=False)
+                    bc_takeover = True
+
+
+                if z>= z_max and reached_z_min == True and reached_z_max == False:
+                    action[2] = 0.03
+                    reached_z_max = True
+
+                ## --------------------------------------- ##
+
+
             elif self.cfg.load_pretrained_agent or self.cfg.pretrain_num_epoch > 0:
                 # the policy has been pretrained/initialized
                 with torch.no_grad(), utils.eval_mode(self.agent):
@@ -361,11 +414,24 @@ class Workspace:
                 action = torch.zeros(self.train_env.action_dim)
                 action = action.uniform_(-1.0, 1.0)
 
-            action = filter_action(action)
+            inp_action = filter_action(action)
 
-            print(f"WarmUp Action {steps}: {action}")
-            obs, reward, terminal, success, image_obs = self.train_env.step(action)
+            print(f"WarmUp Action {steps}: {inp_action}")
+            obs, reward, terminal, success, image_obs = self.train_env.step(inp_action)
+
             obs = filter_obs(obs)
+
+
+            if self.terminate_episode:
+                print("\n---------------- Terminal key pressed --------------- \n")
+                terminal = True
+                self.terminate_episode = False
+                time.sleep(2)
+
+
+
+
+
             reply = {"action": action}
             self.replay.add(obs, reply, reward, terminal, success, image_obs)
 
@@ -373,21 +439,39 @@ class Workspace:
 
             print(common_utils.get_mem_usage())
             if terminal:
+                reached_z_max = False
+                reached_z_min = False
+                bc_takeover = False
+
+
                 num_episode += 1
-                total_reward += self.train_env.episode_reward
+                # total_reward += self.train_env.episode_reward
+                total_reward += reward
                 if self.replay.size() < self.cfg.num_warm_up_episode:
                     self.replay.new_episode(obs)
                     print("---------- Episode Finished ----------")
-                    time.sleep(5)
                     obs, _ = self.train_env.reset()
-                    time.sleep(1)
 
                     obs = filter_obs(obs)
+
+                    time.sleep(2)
+
                 else:
                     break
 
         print(f"Warm up done. #episode: {self.replay.size()}")
         print(f"#episode from warmup: {num_episode}, #reward: {total_reward}")
+
+
+    def on_press(self, key):
+        try:
+            if key.char == 't':  # Change 't' to the key you want to use
+                self.terminate_episode = True
+        except AttributeError:
+            pass
+
+
+
 
     def train(self):
         stat = common_utils.MultiCounter(
@@ -401,8 +485,8 @@ class Workspace:
         self.agent.set_stats(stat)
         saver = common_utils.TopkSaver(save_dir=self.work_dir, topk=1)
 
-        # if self.replay.num_episode < self.cfg.num_warm_up_episode:
-        #     self.warm_up()
+        if self.replay.num_episode < self.cfg.num_warm_up_episode:
+            self.warm_up()
 
         stopwatch = common_utils.Stopwatch()
         obs, _ = self.train_env.reset()
@@ -410,9 +494,11 @@ class Workspace:
         obs = filter_obs(obs)
 
         print(f"filtered prop: ", obs["prop"].shape)
-        print(f"filtered image: ", obs["corner2"].shape)    
+        # print(f"filtered image: ", obs["corner2"].shape)    
 
         self.replay.new_episode(obs)
+        self.terminate_episode = False
+        # terminal = False
         while self.global_step < self.cfg.num_train_step:
             ### act ###
             with stopwatch.time("act"), torch.no_grad(), utils.eval_mode(self.agent):
@@ -430,14 +516,23 @@ class Workspace:
             
                 obs = filter_obs(obs)
 
+
+            if self.terminate_episode:
+                print("\n---------------- Terminal key pressed --------------- \n")
+                terminal = True
+                self.terminate_episode = False
+                time.sleep(2)
+
             with stopwatch.time("add"):
                 assert isinstance(terminal, bool)
                 reply = {"action": action}
                 self.replay.add(obs, reply, reward, terminal, success, image_obs)
                 self.global_step += 1
 
+
             if terminal:
-                print("in terminal")
+                print(" ------- in terminal --------------")
+                print("\n ------- Resetting --------- \n")
                 with stopwatch.time("reset"):
                     self.global_episode += 1
                     stat["score/train_score"].append(float(success))
@@ -445,10 +540,11 @@ class Workspace:
 
                     # reset env
                     obs, _ = self.train_env.reset()
-
+                    terminal = False
                     obs = filter_obs(obs)
 
                     self.replay.new_episode(obs)
+                time.sleep(2)
 
             ### logging ###
             if self.global_step % self.cfg.log_per_step == 0:
@@ -500,7 +596,7 @@ class Workspace:
         #             stat["score_diff/greedy-soft"].append(greedy_score - eval_score)
         #     assert self.agent.cfg.act_method == original_act_method
 
-        saved = saver.save(self.agent.state_dict(), stat["score/train_score"], save_latest=True)
+        saved = saver.save(self.agent.state_dict(), stat["score/train_score"].mean(), save_latest=True)
         stat.summary(self.global_step, reset=True)
         print(f"saved?: {saved}")
         stopwatch.summary(reset=True)
@@ -510,21 +606,21 @@ class Workspace:
     def rl_train(self, stat: common_utils.MultiCounter):
         stddev = utils.schedule(self.cfg.stddev_schedule, self.global_step)
         for i in range(self.cfg.num_critic_update):
-            print("in for loop")
+            # print("in for loop")
             if self.cfg.mix_rl_rate < 1:
-                print("in if")
+                # print("in if")
                 rl_bsize = int(self.cfg.batch_size * self.cfg.mix_rl_rate)
                 bc_bsize = self.cfg.batch_size - rl_bsize
                 print(f"bc_bsize: {bc_bsize}, rl_bsize: {rl_bsize}")
                 batch = self.replay.sample_rl_bc(rl_bsize, bc_bsize, "cuda")
             else:
-                print("in else")
+                # print("in else")
                 print(f"batch size: {self.cfg.batch_size}")
                 batch = self.replay.sample(self.cfg.batch_size, "cuda")
             
             # in RED-Q, only update actor once
             update_actor = i == self.cfg.num_critic_update - 1
-            print("updated actor")
+            # print("updated actor")
             bc_batch = None
             if update_actor and self.cfg.add_bc_loss:
                 bc_batch = self.replay.sample_bc(self.cfg.batch_size, "cuda")

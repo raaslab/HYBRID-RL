@@ -13,6 +13,7 @@ from env.lift import Lift
 from env.drawer import Drawer
 from env.hang import Hang
 from env.towel import Towel
+from env.two_stage import TwoStage
 
 from urtde_controller2 import Args
 import pyrallis
@@ -25,6 +26,7 @@ _ROBOT_CAMERAS = {
         # "robot0_eye_in_hand": "241222076578",
         # "frontview": "838212072814",
         "corner2": "944622074035",
+        "eye_in_hand": "032622072103",
     }
 }
 
@@ -44,7 +46,7 @@ def quat_2_eul(quat):
 
 @dataclass
 class UR3eEnvConfig:
-    task: str = "lift"
+    task: str = "two_stage"
     episode_length: int = 200
     robot: str = "ur3e"  # ur3e, fr3
     control_hz: float = 15.0
@@ -53,7 +55,7 @@ class UR3eEnvConfig:
     rl_image_size: int = 224
     use_depth: int = 0
     # rl_camera: str = "robot0_eye_in_hand"
-    rl_camera: str = "corner2"
+    rl_camera: str = "corner2+eye_in_hand"
     randomize: int = 0
     show_camera: int = 1
     drop_after_terminal: int = 1
@@ -63,6 +65,7 @@ class UR3eEnvConfig:
     def __post_init__(self):
         
         self.rl_cameras = self.rl_camera.split("+")
+        print("ENV Rl cameras: ", self.rl_cameras)
 
         if self.robot == "ur3e":
             self.remote_ip_address = "tcp://172.16.0.1:4242"
@@ -144,6 +147,8 @@ class UR3eEnv:
             self.task = Lift(verbose=False)
         elif cfg.task == "drawer":
             self.task = Drawer()
+        elif cfg.task == "two_stage":
+            self.task = TwoStage()
         elif cfg.task == "hang":
             self.task = Hang()
         elif cfg.task == "towel":
@@ -185,7 +190,7 @@ class UR3eEnv:
         high_res_images = {}
 
         for name, camera in self.cameras.items():
-            frames = camera.get_frames()
+            frames = camera.get_frames(name)
             assert len(frames) == 1
             image = frames[""]
             if name == "frontview":
@@ -224,6 +229,11 @@ class UR3eEnv:
     def get_reward_terminal(self):
         if self.cfg.task == "lift":
             props, in_good_range = self.controller.get_state()
+            print("checking lift reward")
+            reward: float = self.task.reward(props)
+        elif self.cfg.task == "two_stage":
+            props, in_good_range = self.controller.get_state()
+            print("checking two_stage reward")
             reward: float = self.task.reward(props)
         elif self.cfg.task == "drawer":
             _, in_good_range = self.controller.get_state()
@@ -239,11 +249,13 @@ class UR3eEnv:
 
         success = reward > 0
 
+
         self.terminal = success
         if self.time_step >= self.cfg.episode_length:
+            print("- - - - - - - Episode Length Exceeded - - - - - - - \n")
             self.terminal = True
-        if not in_good_range:
-            self.terminal = True
+        # if not in_good_range:
+            # self.terminal = True
 
         if success and self.cfg.drop_after_terminal:
             self.release_gripper()
@@ -329,8 +341,8 @@ def test():
 
 
 
-    action = np.array([0.0016, -0.0041, -0.0028, 0, 0, 0, 0.0497])    
-    env.apply_action(action)
+    # action = np.array([0.0016, -0.0041, -0.0028, 0, 0, 0, 0.0497])    
+    # env.apply_action(action)
 
     # with Rate(10.0):
     # print("--- Random Action ----")

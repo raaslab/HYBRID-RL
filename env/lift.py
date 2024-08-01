@@ -31,7 +31,7 @@ class Lift:
         desired_gripper_qpos = np.array(curr_prop["robot0_desired_gripper_qpos"]).item()
         # real_gripper_qpos = curr_prop["robot0_gripper_qpos"].item()
         real_gripper_qpos = np.array(curr_prop["robot0_gripper_qpos"]).item()
-        if desired_gripper_qpos <= 0.8:
+        if desired_gripper_qpos <= 0.5:
             # gripper is not even closing
             if self.verbose:
                 print(">>> not gripping")
@@ -60,17 +60,21 @@ class Lift:
         gap = desired_gripper_qpos - real_gripper_qpos
         z_loc = curr_prop["robot0_eef_pos"][2]
 
+        print(f"Desired: {desired_gripper_qpos}, Real: {real_gripper_qpos}")
+
         if gap > 0.25:
             self.hold_count += 1
             if self.hold_count == 1:
                 self.z_at_hold = z_loc
                 print("[z_at_hold]:", self.z_at_hold)
 
-        if self.hold_count >= 3 and z_loc - self.z_at_hold > 0.02:
+        # if self.hold_count >= 1 and z_loc - self.z_at_hold > 0.01:
+        if self.hold_count >= 3:
             # hold for at least 0.3 seconds
             # and
             # moving up 2 cm since first holding
             self.prev_gripper_qpos = real_gripper_qpos
+            print('\n -------------------- YAY! GOT the REWARD ------------------------- \n')
             return 1
 
         if self.verbose:
@@ -87,18 +91,18 @@ class LiftEEConfig:
         self.init_ee_pos = [0.5, 0, 0.32]
         self.home = np.array(
             [
-                # np.deg2rad(-87.5),
-                # np.deg2rad(-114.5),
-                # np.deg2rad(-73.28),
-                # np.deg2rad(-82.21),
-                # np.deg2rad(90.07),
-                # np.deg2rad(92.48),
+                # np.deg2rad(-73.92),
+                # np.deg2rad(-92.73),
+                # np.deg2rad(-125.91),
+                # np.deg2rad(-51.18),
+                # np.deg2rad(89.98),
+                # np.deg2rad(196.03),
                 -1.57,  # 1st joint (from base), horizontal, negative: rotate clockwise
                 -1.57,  # 2nd joint, vertical, negative: go up, positive: go down
                 -1.57,  # 3rd joint, horizontal,
                 -1.57,
                 1.57,
-                1.57,  # 6th, smaller -> inward
+                3.14,  # 6th, smaller -> inward
                 0.0,  # np.pi * 0.5,  # control the rotation of the gripper
             ],
             dtype=np.float32,

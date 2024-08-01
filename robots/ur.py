@@ -24,7 +24,8 @@ class URRobot(Robot):
 
         control_rate_hz: float = 100.0
 
-        self.r_inter = rtde_receive.RTDEReceiveInterface(robot_ip)
+        hz = 15
+        self.r_inter = rtde_receive.RTDEReceiveInterface(robot_ip, hz)
         if not no_gripper:
             from robots.robotiq_gripper import RobotiqGripper
 

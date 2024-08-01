@@ -18,7 +18,7 @@ torch.cuda.init()
 def get_device():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-class SparseDenseDataset(Dataset):
+class  SparseDenseDataset(Dataset):
     def __init__(self, hdf5_paths, transform=None):
         self.transform = transform
         self.images = []
@@ -35,7 +35,7 @@ class SparseDenseDataset(Dataset):
                     
                     
                     
-                    self.modes.append(demo_group['mode1'][:])
+                    self.modes.append(demo_group['mode'][:])
         
         self.images = np.concatenate(self.images, axis=0)
 
@@ -56,7 +56,7 @@ class SparseDenseDataset(Dataset):
             image = self.transform(image)
         
                 
-        return {'image': image, 'mode1': mode}
+        return {'image': image, 'mode': mode}
 
 
 def get_transform():
@@ -107,7 +107,7 @@ def train(model, train_loader, val_loader, device, num_epochs=100):
         running_loss = 0.0
         for data in tqdm(train_loader, desc=f'Epoch {epoch+1}/{num_epochs}'):
             images = data['image'].to(device)
-            modes = data['mode1'].to(device).long()
+            modes = data['mode'].to(device).long()
             optimizer.zero_grad()
             outputs = model(images)
             loss = criterion(outputs, modes)
@@ -132,7 +132,7 @@ def validate(model, val_loader, device):
     with torch.no_grad():
         for data in val_loader:
             images = data['image'].to(device)
-            modes = data['mode1'].to(device).long()
+            modes = data['mode'].to(device).long()
             outputs = model(images)
             loss = criterion(outputs, modes)
             total_loss += loss.item()
@@ -144,10 +144,11 @@ def validate(model, val_loader, device):
 
 def main():
     device = get_device()
-    dataset_paths = ['/home/amisha/ibrl/release/data/metaworld/mw12/assembly_mw12.hdf5',
-                     '/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_mw12.hdf5',
-                     '/home/amisha/ibrl/release/data/metaworld/mw12/stickpull_mw12.hdf5',
-                     '/home/amisha/ibrl/release/data/metaworld/mw12/coffeepush_mw12.hdf5']
+    # dataset_paths = ['/home/amisha/ibrl/release/data/metaworld/mw12/assembly_mw12.hdf5',
+    #                  '/home/amisha/ibrl/release/data/metaworld/mw12/boxclose_mw12.hdf5',
+    #                  '/home/amisha/ibrl/release/data/metaworld/mw12/stickpull_mw12.hdf5',
+    #                  '/home/amisha/ibrl/release/data/metaworld/mw12/coffeepush_mw12.hdf5']
+    dataset_paths = ["release/data/real_robot_new/data_processed_new_hyrl.hdf5"]
     transform = get_transform()
     dataset = SparseDenseDataset(dataset_paths, transform=transform)
     train_size = int(0.8 * len(dataset))

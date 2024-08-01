@@ -45,6 +45,7 @@ class QAgentConfig:
     bc_loss_coef: float = 0.1
     bc_loss_dynamic: int = 0  # dynamically scale bc loss weight
 
+
     def __post_init__(self):
         if self.bootstrap_method == "":
             self.bootstrap_method = self.act_method
@@ -64,6 +65,7 @@ class QAgent(nn.Module):
             self.actor = FcActor(obs_shape, action_dim, cfg.state_actor)
         else:
             self.encoder = self._build_encoders(obs_shape)
+
             repr_dim = self.encoder.repr_dim
             patch_repr_dim = self.encoder.patch_repr_dim
             print("encoder output dim: ", repr_dim)

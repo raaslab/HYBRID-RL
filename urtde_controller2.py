@@ -8,6 +8,7 @@ from env.lift import LiftEEConfig
 from env.drawer import DrawerEEConfig
 from env.hang import HangEEConfig
 from env.towel import TowelEEConfig
+from env.two_stage import TwoStageEEConfig
 
 # from robots.ur import URRobot
 from zmq_core.robot_node import ZMQClientRobot
@@ -109,6 +110,8 @@ class URTDEController:
             self.ee_config = LiftEEConfig()
         elif task == "drawer":  
             self.ee_config = DrawerEEConfig()
+        elif task == "two_stage":
+            self.ee_config = TwoStageEEConfig()
         elif task == "hang":
             self.ee_config = HangEEConfig()
         elif task == "towel":
@@ -147,6 +150,9 @@ class URTDEController:
 
         self.desired_gripper_qpos = 0
 
+        self.reached_place = False
+        self.reached_z_min = False
+
     def hello(self):
         return "hello"
 
@@ -172,11 +178,11 @@ class URTDEController:
 
         self.desired_gripper_qpos = gripper_action
 
-        self._gripper.move(
-            position=width,
-            speed=0.1,
-            force=0.01,
-        )
+        # self._gripper.move(
+        #     position=width,
+        #     speed=0.1,
+        #     force=0.01,
+        # )
 
     def update(self, action: list[float]) -> None:
         """
@@ -198,6 +204,11 @@ class URTDEController:
         else:
             return
 
+        # Do not execute is elbow angle is almost horizontal
+        if self._robot.get_obs()["joint_positions"][1] < -2.7:
+            return
+
+        
         robot_action: np.ndarray = np.array(action[:-1])
         gripper_action: float = action[-1]
 
@@ -213,17 +224,58 @@ class URTDEController:
             # new_rot = ee_ori + delta_ori
             # new_rot = ee_ori
             
-            new_rot = np.array([2.223, 2.219, 0.0018])
+            new_rot = np.array([3.14, 0.00, 0.002])
 
             # clip
             # new_pos, new_rot = self.ee_config.clip(new_pos, new_rot)
             end_eff_pos = np.concatenate((new_pos, new_rot, [gripper_action]))
-            print(f"Abs Pose: {end_eff_pos}")
 
             # Check if in good range
             # in_good_range = self.ee_config.ee_in_good_range(end_eff_pos[:3], end_eff_pos[3:6])
             # if in_good_range:
+
+            # --- skip if the z is touching table ------ #
+
+            # ## ----- This temporrary -> put this back in predication and rl_hardware code ----- ##
+            z_min = -0.015
+            # z_min = 0.008
+            # z_max=0.14
+            # if end_eff_pos[2] <= z_min and self.reached_z_min == False:
+            if end_eff_pos[2] <= z_min: 
+            #     # end_eff_pos[0] = -5.30370915e-02
+            #     # end_eff_pos[1] = -2.90102685e-01
+            #     # end_eff_pos[1] = end_eff_pos[1] - 0.002
+                end_eff_pos[2] = z_min
+            #     # end_eff_pos[2] = 0.005
+            #     # self._robot.move_to_eef_positions(end_eff_pos, delta=False)
+            #     self.reached_z_min = True
+            
+            # if self.reached_z_min:
+            #     end_eff_pos[-1] = 0.8
+            # # add condition, if gripper pose is 0.8 and the z is greater than z_max, then z = z_max
+
+            # # if self.reached_place:
+            # #     end_eff_pos[-1] = gripper_action
+
+
+
+            # if end_eff_pos[-1] >= 0.5 and end_eff_pos[2] >= 0.135 and self.reached_place == False:
+            #     # end_eff_pos[2] = z_max
+            #     end_eff_pos[0] = -0.21
+            #     end_eff_pos[1] = -0.35
+            #     self._robot.move_to_eef_positions(end_eff_pos, delta=False)
+            #     end_eff_pos[-1] = gripper_action
+            #     # end_eff_pos[-1] = 0.5
+            #     self.reached_place=True
+
+
+
+            # print("Action: ", end_eff_pos)
+
+            print(f"Abs Pose: {end_eff_pos}")
+
             self._robot.move_to_eef_positions(end_eff_pos, delta=True)
+            self.update_gripper(end_eff_pos[-1], blocking=False)
             # else:
                 # print("Action Skipped due to out of range")
         else:
@@ -254,6 +306,8 @@ class URTDEController:
 
         # assert not self._robot.is_running_policy()
         # self._robot.start_cartesian_impedance()
+        self.reached_place=False
+        self.reached_z_min = False
         time.sleep(1)
 
     def get_state(self) -> dict[str, list[float]]:
@@ -263,17 +317,20 @@ class URTDEController:
         """
         ee_pos, ee_quat = np.split(self._robot.get_ee_pose(), [3])
         gripper_state = self._gripper.get_current_position()
-        gripper_pos = 1 - (gripper_state / self._max_gripper_width) # 0 is open and 1 is closed
+        joint_states = self._robot.get_obs()["joint_positions"]
+        # gripper_pos = 1 - (gripper_state / self._max_gripper_width) # 0 is open and 1 is closed
+        gripper_pos = (gripper_state / self._max_gripper_width) # 0 is open and 1 is closed
 
         state = {
             "robot0_eef_pos": list(ee_pos),
             "robot0_eef_quat": list(ee_quat),
             "robot0_gripper_qpos": [gripper_pos],
             "robot0_desired_gripper_qpos": [self.desired_gripper_qpos],
+            "joint_positions": list(joint_states)
         }
 
         in_good_range = self.ee_config.ee_in_good_range(
-            state["robot0_eef_pos"], state["robot0_eef_quat"], True
+            state["robot0_eef_pos"], state["robot0_eef_quat"], False
         )
         return state, in_good_range
 
@@ -344,7 +401,7 @@ if __name__ == "__main__":
 
     # Go to a given ee position
     # # Reset Back
-    # end_eff_pos_data = np.array([-0.12536480733412165, -0.29226684480968773, 0.13522647225111453, -2.2200909339676396, -2.19617170649372, -0.014573946771996804, 0.0])
+    # end_eff_pos_data = np.array([-5.30370915e-02, -2.90102685e-01,  5.24580323e-03,  3.14000000e+00,0.00000000e+00,  2.00000000e-03, 0.0])
 
     # print("Moving..")
     # robot.move_to_eef_positions(end_eff_pos_data, delta=False)
@@ -357,14 +414,14 @@ if __name__ == "__main__":
 
     # controller.reset(randomize=False)
 
-    # Execute the actions from hdf5
-    import h5py
+    # # Execute the actions from hdf5
+    # import h5py
 
-    with h5py.File("release/data/real_robot/data_processed_spaced.hdf5", "r") as f:
-        # initial_pose = f["data"]['demo_1']['states'][0]
-        actions = f["data"]["demo_0"]["actions"][:]
+    # with h5py.File("release/data/real_robot/data_processed_spaced.hdf5", "r") as f:
+    #     # initial_pose = f["data"]['demo_1']['states'][0]
+    #     actions = f["data"]["demo_0"]["actions"][:]
     
-    print("Executing actions...")
-    for action in actions:
-        controller.update(action)
-        time.sleep(0.5)
+    # print("Executing actions...")
+    # for action in actions:
+    #     controller.update(action)
+    #     time.sleep(0.5)

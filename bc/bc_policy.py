@@ -75,6 +75,8 @@ class BcPolicy(nn.Module):
         assert not self.training
 
         unsqueezed = False
+
+        print("BC policy:  code : ", self.rl_cameras)
         if obs[self.rl_cameras[0]].dim() == 3:
             # add batch dim
             for k, v in obs.items():
