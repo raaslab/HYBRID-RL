@@ -135,6 +135,7 @@ class RobotEnv:
             print("Steps to reach home pose", steps)
         for jnt in np.linspace(curr_joints, positions, steps):
             self.step(jnt)
+            print(self.get_ee_pose())
         return True
          
     def move_to_eef_positions(self, positions: np.ndarray, delta: bool = False):

@@ -113,8 +113,8 @@ class TwoStage:
         
         
         curr_pos = curr_prop["robot0_eef_pos"]
-        goal_pos = np.array([-0.23, -0.35, 0.1])       # Check if the object is within a certain threshold of the goal position
-        if np.linalg.norm(curr_pos - goal_pos) < 0.05:
+        goal_pos = np.array([-0.23, -0.35, 0.11])       # Check if the object is within a certain threshold of the goal position
+        if np.linalg.norm(curr_pos[:2] - goal_pos[:2]) < 0.05 and np.linalg.norm(curr_pos[2] - goal_pos[2]) < 0.05:
             # self.stage += 1
             # if self.stage == 3:
             self.prev_gripper_qpos = real_gripper_qpos

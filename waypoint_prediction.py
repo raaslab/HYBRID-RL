@@ -6,7 +6,30 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 import h5py
 
-# Load the data from multiple datasets
+# # Load the data from multiple datasets
+# def load_data(filepaths):
+#     inputs_corner_images = []
+#     inputs_eye_images = []
+#     inputs_props = []
+#     waypoint_labels = []
+
+#     for filepath in filepaths:
+#         with h5py.File(filepath, 'r') as file:
+#             for i in range(len(file['data'].keys())):  # Adjust based on the number of demonstrations in each dataset
+#                 demo_key = f'data/demo_{i}'
+#                 # --- Metaworld environment dataset ---
+#                 inputs_corner_images.append(file[demo_key + '/obs/corner2_image'][:])
+#                 inputs_eye_images.append(file[demo_key + '/obs/eye_in_hand_image'][:])
+#                 inputs_props.append(file[demo_key + '/obs/prop'][:])
+#                 waypoint_labels.append(file[demo_key + '/waypoint'][:, :3])  # Use the dedicated waypoint key
+
+#     inputs_corner_images = np.concatenate(inputs_corner_images, axis=0)
+#     inputs_eye_images = np.concatenate(inputs_eye_images, axis=0)
+#     inputs_props = np.concatenate(inputs_props, axis=0)
+#     waypoint_labels = np.concatenate(waypoint_labels, axis=0)
+
+#     return inputs_corner_images, inputs_eye_images, inputs_props, waypoint_labels
+
 def load_data(filepaths):
     inputs_corner_images = []
     inputs_eye_images = []
@@ -18,17 +41,33 @@ def load_data(filepaths):
             for i in range(len(file['data'].keys())):  # Adjust based on the number of demonstrations in each dataset
                 demo_key = f'data/demo_{i}'
                 # --- Metaworld environment dataset ---
-                inputs_corner_images.append(file[demo_key + '/obs/corner2_image'][:])
-                inputs_eye_images.append(file[demo_key + '/obs/eye_in_hand_image'][:])
-                inputs_props.append(file[demo_key + '/obs/prop'][:])
-                waypoint_labels.append(file[demo_key + '/waypoint'][:, :3])  # Use the dedicated waypoint key
+                corner_images = file[demo_key + '/obs/corner2_image'][:]
+                eye_images = file[demo_key + '/obs/eye_in_hand_image'][:]
+                props = file[demo_key + '/obs/prop'][:]
+                waypoints = file[demo_key + '/waypoint'][:, :3]  # Use the dedicated waypoint key
 
+                # Filter out rows where all elements are zero
+                non_zero_row_indices = np.any(waypoints != 0, axis=1)
+                # Append filtered data
+                inputs_corner_images.append(corner_images[non_zero_row_indices])
+                inputs_eye_images.append(eye_images[non_zero_row_indices])
+                inputs_props.append(props[non_zero_row_indices])
+                waypoint_labels.append(waypoints[non_zero_row_indices])
+
+                # # --- Check if is considering non-zero rows
+                # print(f"Length{i}:\ninputs_corner_images: {inputs_corner_images[-1].shape}, inputs_eye_images: {inputs_eye_images[-1].shape}, inputs_props: {inputs_props[-1].shape}, waypoint_labels: {waypoint_labels[-1].shape}")
+    
+    # Concatenate all collected data
     inputs_corner_images = np.concatenate(inputs_corner_images, axis=0)
     inputs_eye_images = np.concatenate(inputs_eye_images, axis=0)
     inputs_props = np.concatenate(inputs_props, axis=0)
     waypoint_labels = np.concatenate(waypoint_labels, axis=0)
 
+
     return inputs_corner_images, inputs_eye_images, inputs_props, waypoint_labels
+
+
+
 
 class WaypointPredictor(nn.Module):
     def __init__(self, input_channels=3, input_height=96, input_width=96):
@@ -65,6 +104,10 @@ class WaypointPredictor(nn.Module):
         img1 = img1.view(img1.size(0), -1)
         img2 = self.conv_layers2(img2)
         img2 = img2.view(img2.size(0), -1)
+        prop = prop.view(prop.size(0), -1)  # Flatten prop
+        # print(f'img1 shape: {img1.shape}')
+        # print(f'img2 shape: {img2.shape}')
+        # print(f'prop shape: {prop.shape}')
         combined = torch.cat((img1, img2, prop), dim=1)
         return self.fc_layers(combined)
     
@@ -75,7 +118,7 @@ class WaypointPredictor(nn.Module):
 
 
 # Train the model
-def train_model(model, train_loader, criterion, optimizer, epochs=40):
+def train_model(model, train_loader, criterion, optimizer, epochs=30):
     model.train()
     for epoch in range(epochs):
         running_loss = 0.0
@@ -101,7 +144,7 @@ def test_model(model, test_loader, criterion):
     print(f'Test Loss: {avg_loss:.4f}')
 
 def main():
-    filepaths = ['release/data/real_robot_2S/data_2S_hyrl_SDSD.hdf5']
+    filepaths = ['release/data/real_robot_2S/data_2S_hyrl_SDSSD.hdf5']
     corner_images, eye_images, props, waypoints = load_data(filepaths)
     
     corner_images_t = torch.tensor(corner_images, dtype=torch.float32)
@@ -123,7 +166,7 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     train_model(model, train_loader, criterion, optimizer)
-    torch.save(model.state_dict(), 'waypoint_predictor2S_dual_SDSD.pth')
+    torch.save(model.state_dict(), 'waypoint_predictor2S_dual_SDSSD.pth')
     print("Model Saved!")
 
     test_model(model, test_loader, criterion)
