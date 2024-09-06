@@ -5,7 +5,7 @@ preload_num_data: 3
 env_reward_scale: 1
 num_train_step: 60000
 replay_buffer_size: 500
-use_wb: 1
+use_wb: 0
 num_eval_episode: 20
 q_agent:
   act_method: "ibrl"
