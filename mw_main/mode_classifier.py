@@ -77,23 +77,7 @@ def get_transform():
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
 
-# class EfficientHybridNet(nn.Module):
-#     def __init__(self):
-#         super(EfficientHybridNet, self).__init__()
-#         self.base_model = EfficientNet.from_pretrained('efficientnet-b0')
-#         self.pooling = nn.AdaptiveAvgPool2d(1)
-#         self.classifier = nn.Sequential(
-#             nn.Linear(1280, 512),  # EfficientNet-b0 feature size
-#             nn.ReLU(),
-#             nn.Dropout(0.5),
-#             nn.Linear(512, 2)
-#         )
 
-#     def forward(self, x):
-#         x = self.base_model.extract_features(x)
-#         x = self.pooling(x).view(x.size(0), -1)
-#         x = self.classifier(x)
-#         return x
 
 class HybridResNet(nn.Module):
     def __init__(self, model_type='resnet101'):
@@ -196,60 +180,6 @@ def validate(model, val_loader, device):
             total_loss += loss.item()
     return total_loss / len(val_loader)
 
-# def train_and_validate(model, train_loader, val_loader, device, num_epochs=100):
-#     criterion = CrossEntropyLoss()
-#     optimizer = Adam(model.parameters(), lr=0.001)
-#     model.train()
-#     all_metrics = {'accuracy': [], 'precision': [], 'recall': [], 'f1': [], 'val_loss': []}
-#     min_val_loss = float('inf')
-#     best_model_state = None
-
-#     for epoch in range(num_epochs):
-#         for data in tqdm(train_loader, desc=f'Epoch {epoch+1}/{num_epochs}'):
-#             images = data['image'].to(device)
-#             modes = data['mode1'].to(device).long()
-#             optimizer.zero_grad()
-#             outputs = model(images)
-#             loss = criterion(outputs, modes)
-#             loss.backward()
-#             optimizer.step()
-#         # scheduler.step()
-#         # Validation phase
-#         model.eval()
-#         val_loss = 0
-#         all_preds = []
-#         all_modes = []
-#         with torch.no_grad():
-#             for data in val_loader:
-#                 images = data['image'].to(device)
-#                 modes = data['mode1'].to(device).long()
-#                 outputs = model(images)
-#                 batch_loss = criterion(outputs, modes)
-#                 val_loss += batch_loss.item() * data['image'].size(0)
-#                 _, preds = torch.max(outputs, 1)
-#                 all_preds.extend(preds.cpu().numpy())
-#                 all_modes.extend(modes.cpu().numpy())
-#         val_loss /= len(val_loader.dataset)
-
-#         # Track and save the best model
-#         if val_loss < min_val_loss:
-#             min_val_loss = val_loss
-#             best_model_state = model.state_dict()  # Save the best model state
-
-#         # Compute metrics
-#         accuracy = accuracy_score(all_modes, all_preds)
-#         precision = precision_score(all_modes, all_preds, average='macro', zero_division=0)
-#         recall = recall_score(all_modes, all_preds, average='macro', zero_division=0)
-#         f1 = f1_score(all_modes, all_preds, average='macro')
-#         all_metrics['accuracy'].append(accuracy)
-#         all_metrics['precision'].append(precision)
-#         all_metrics['recall'].append(recall)
-#         all_metrics['f1'].append(f1)
-#         all_metrics['val_loss'].append(val_loss)
-
-#         print(f"accuracy: {accuracy}")
-#         print(f"val_loss: {val_loss}")
-#     return all_metrics, best_model_state
 
 
 
@@ -321,35 +251,8 @@ def main(args):
     plot_metrics(avg_metrics)
 
 
-def train3_test1():
-    train_dataset_paths = [
-        '/home/amisha/ibrl/augmented_data/coffeepush_mw12.hdf5',
-        '/home/amisha/ibrl/augmented_data/assembly_mw12.hdf5',
-        '/home/amisha/ibrl/augmented_data/boxclose_mw12.hdf5'
-    ]
-    test_dataset_path = '/home/amisha/ibrl/augmented_data/stickpull_mw12.hdf5'
-    
-    transform = get_transform()
-    
-    train_dataset = SparseDenseDataset(train_dataset_paths, transform=transform)
-    test_dataset = SparseDenseDataset([test_dataset_path], transform=transform)
-    
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
-    
-    model = HybridResNet().to(get_device())
-    # model = EnhancedHybridResNet().to(get_device())
-    # model = EfficientHybridNet().to(get_device())
-    metrics, best_model_state = train_and_validate(model, train_loader, test_loader, get_device())
-    
-    # Save the best model
-    torch.save(best_model_state, model_name)
-    
-    # Plot metrics
-    plot_metrics(metrics)
 
 
-# model_name = "mode_augumented_efficientNet.pth"
 
 
 if __name__ == '__main__':
