@@ -171,8 +171,9 @@ def add_demos_to_replay(
     num_episode: int = len(list(f["data"].keys()))  # type: ignore
     print(f"loading first {num_data} episodes from {data_path}")
     print(f"Raw Dataset size (#episode): {num_episode}")
-    for episode_id in range(num_episode):
-        if num_data > 0 and episode_id >= num_data:
+    for n, episode_id in enumerate(range(num_episode-1, -1, -1)):   # consider episodes from last
+    # for episode_id in range(1, num_episode):
+        if num_data > 0 and n > num_data:
             break
 
         episode_tag = f"demo_{episode_id}"
@@ -180,7 +181,10 @@ def add_demos_to_replay(
         actions: np.ndarray = np.array(episode["actions"])  # type: ignore
         images: np.ndarray = np.array(episode[f"obs/{rl_camera}_image"])  # type: ignore
         rewards: np.ndarray = np.array(f[f"data/{episode_tag}/rewards"])  # type: ignore
-        terminals = rewards
+        dones: np.ndarray = np.array(f[f"data/{episode_tag}/dones"])  # added to load replaybuffer
+        # terminals = rewards
+        terminals = dones   # It should dones attribute for replaybuffer loading
+        print(f"Episode Num: {episode_id}")
         print("rewards:", rewards)
 
         episode_len = rewards.shape[0]

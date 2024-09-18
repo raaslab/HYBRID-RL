@@ -8,7 +8,6 @@ import pprint
 import pyrallis
 import torch
 import numpy as np
-import cv2 
 
 import common_utils
 from common_utils import ibrl_utils as utils
@@ -17,13 +16,15 @@ from env.metaworld_wrapper import PixelMetaWorld
 import mw_replay
 import train_bc_mw
 from eval_mw import run_eval
+import h5py
+# import cv2
 
 
 BC_POLICIES = {
-    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_Assembly/model1.pt",
-    "boxclose": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_2_BoxClose/model1.pt",
-    "coffeepush": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_2_CoffeePush/model1.pt",
-    "stickpull": "/home/amisha/ibrl/exps/bc/metaworld/augmented_data_seed_2_StickPull/model1.pt",
+    "assembly": "release/model/metaworld/assembly_num_data3_num_epoch2_seed1/model1.pt",
+    "boxclose": "release/model/metaworld/boxclose_num_data3_num_epoch2_seed1/model1.pt",
+    "coffeepush": "release/model/metaworld/coffeepush_num_data3_num_epoch2_seed1/model1.pt",
+    "stickpull": "release/model/metaworld/stickpull_num_data3_num_epoch2_seed1/model1.pt",
 }
 
 BC_DATASETS = {
@@ -36,7 +37,7 @@ BC_DATASETS = {
 
 @dataclass
 class MainConfig(common_utils.RunConfig):
-    seed: int = 1
+    seed: int = 3
     # env
     episode_length: int = 200
     # agent
@@ -69,6 +70,8 @@ class MainConfig(common_utils.RunConfig):
     # log
     use_wb: int = 0
     save_dir: str = ""
+    load_RL_model: str = "exps/rl/metaworld/ibrl/2024-09-06_08-14-39_ibrl_seed3_assembly_rand/model0.pt"
+    # load_RL_model: str = None
 
     def __post_init__(self):
         self.preload_datapath = self.bc_policy
@@ -76,7 +79,11 @@ class MainConfig(common_utils.RunConfig):
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
             dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
 
-        self.save_dir = f"exps/rl/metaworld/ibrl/ibrl_seed{self.seed}_{dataset_name}"
+        from datetime import datetime
+        directory = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+
+
+        self.save_dir = f"exps/rl/metaworld/ibrl/{directory}_ibrl_seed{self.seed}_{dataset_name}_rand"
         # self.save_dir = f"exps/rl/metaworld/ibrl/no_randomize_evaluation"
         self.preload_datapath = BC_DATASETS.get(self.bc_policy, "")
 
@@ -90,12 +97,10 @@ class Workspace:
         self.work_dir = cfg.save_dir
         print(f"workspace: {self.work_dir}")
 
-
-        # Create a video window
-        self.window_name = 'Metaworld Environment'
-        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(self.window_name, 600, 600) 
-
+        # # Create a video window
+        # self.window_name = 'Metaworld Environment'
+        # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        # cv2.resizeWindow(self.window_name, 600, 600) 
 
 
         common_utils.set_all_seeds(cfg.seed)
@@ -142,6 +147,9 @@ class Workspace:
         self._setup_replay()
         self.ref_agent: Optional[QAgent] = None
 
+        # Setup hdf5 file to reload replaybuffer
+        self.setup_replay_hdf5()
+
     def _setup_env(self):
         # camera_names = [self.cfg.rl_camera]
         print(common_utils.wrap_ruler("Env Config"))
@@ -157,7 +165,8 @@ class Workspace:
         eval_env_params = self.env_params.copy()
         eval_env_params["env_reward_scale"] = 1.0
         eval_env_params["randomize_start"] = True
-        print(f"I am randomizing: {eval_env_params['randomize_start']}")
+        print(f"Eval Env Randomization check: {eval_env_params['randomize_start']}")
+        self.eval_env_params = eval_env_params
         self.eval_env = PixelMetaWorld(**eval_env_params)  # type: ignore
 
     def _setup_replay(self):
@@ -182,6 +191,28 @@ class Workspace:
                 reward_scale=self.cfg.env_reward_scale,
             )
             self.replay.freeze_bc_replay = True
+    
+    def setup_replay_hdf5(self):
+        self.replay_file = os.path.join(self.work_dir, "replay_buffer.hdf5")
+        with h5py.File(self.replay_file, "w") as f:
+            self.hdf5_data = f.create_group("data")
+
+
+    def save_hdf5(self, episode_name, actions, dones, rewards, corner2_image, prop):
+        with h5py.File(self.replay_file, "a") as f:
+            demo = f["data"].create_group(episode_name)
+            demo.create_dataset("actions", data=np.array(actions))
+            demo.create_dataset("dones", data=np.array(dones))
+            demo.create_dataset("rewards", data=np.array(rewards))
+            demo.create_dataset("states", data=np.array(prop))
+            obs = demo.create_group("obs")
+            obs.create_dataset("corner2_image", data=np.array(corner2_image))
+            obs.create_dataset("prop", data=np.array(prop))
+        # obs.create_dataset("state", data=)
+        print(f"Saved episode: {episode_name}")
+
+
+
 
     def eval(self, seed, policy):
         random_state = np.random.get_state()
@@ -250,8 +281,17 @@ class Workspace:
         self.num_success = self.replay.num_success
         stopwatch = common_utils.Stopwatch()
 
-        obs, _ = self.train_env.reset()
+        obs, image_obs = self.train_env.reset()
         self.replay.new_episode(obs)
+
+        # Replay buffer storing variables
+        rec_actions=[]
+        rec_images=[]
+        rec_dones=[]
+        rec_rewards=[]
+        rec_prop=[]
+        # terminal = 0    # intializing for saving replay buffer
+        # reward = 0      # intializing for saving replay buffer
         while self.global_step < self.cfg.num_train_step:
             ### act ###
             with stopwatch.time("act"), torch.no_grad(), utils.eval_mode(self.agent):
@@ -262,19 +302,20 @@ class Workspace:
             ### env.step ###
             with stopwatch.time("env step"):
                 obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
-                # ----> Render the environment <----
-                try:
-                    img = self.train_env.env.env.render(mode='rgb_array')                     
-                    cv2.imshow(self.window_name,  cv2.cvtColor(img, cv2.COLOR_BGR2RGB))                    
-                    cv2.waitKey(1)
-                except Exception as e:
-                    print(f"Error rendering image: {e}")  
 
             with stopwatch.time("add"):
                 assert isinstance(terminal, bool)
                 reply = {"action": action}
                 self.replay.add(obs, reply, reward, terminal, success, image_obs)
                 self.global_step += 1
+
+                # Add stuff to reload into replaybuffer         
+                rec_images.append(image_obs["corner2"].cpu().numpy())
+                rec_dones.append(int(terminal))
+                rec_rewards.append(reward)
+                rec_prop.append(obs["prop"].cpu().numpy())
+                rec_actions.append(action.numpy())
+
 
             if terminal:
                 with stopwatch.time("reset"):
@@ -284,9 +325,23 @@ class Workspace:
                     if self.replay.bc_replay is not None:
                         stat["data/bc_replay"].append(self.replay.size(bc=True))
 
+                    ## ----- Save to reuse for replaybuffer -----
+                    episode_num = f"demo_{self.global_episode-1}"
+                    self.save_hdf5(episode_num, rec_actions, rec_dones, rec_rewards, rec_images, rec_prop)
+                    rec_actions.clear()
+                    rec_images.clear()
+                    rec_dones.clear()
+                    rec_rewards.clear()
+                    rec_prop.clear()
+                    ## ----------------------------------------
+
                     # reset env
                     obs, _ = self.train_env.reset()
                     self.replay.new_episode(obs)
+
+                    # print("------------------------------")
+                    # print("__________Episode Done________")
+                    # print("------------------------------")
 
             ### logging ###
             if self.global_step % self.cfg.log_per_step == 0:
@@ -378,6 +433,53 @@ class Workspace:
             print(common_utils.get_mem_usage())
 
 
+
+def load_model(weight_file, device):
+    cfg_path = os.path.join(os.path.dirname(weight_file), f"cfg.yaml")
+    print(common_utils.wrap_ruler("config of loaded agent"))
+    with open(cfg_path, "r") as f:
+        print(f.read(), end="")
+    print(common_utils.wrap_ruler(""))
+
+    cfg = pyrallis.load(MainConfig, open(cfg_path, "r"))  # type: ignore
+    # cfg.preload_num_data = 0  # override this to avoid loading data
+    
+    # _____ Load Replay Buffer ________
+    replay_file = os.path.join(os.path.dirname(weight_file), "replay_buffer.hdf5")
+    with h5py.File(replay_file, "r") as f:
+        data = f["data"]
+        print(f"Loaded replay buffer with {len(data.keys())} episodes")
+        # cfg.preload_num_data = len(data.keys())
+        cfg.preload_num_data = cfg.replay_buffer_size
+        cfg.preload_datapath = replay_file
+    # _________________________________
+    
+    workplace = Workspace(cfg)
+
+    eval_env = workplace.eval_env
+    eval_env_params = workplace.eval_env_params
+    agent = workplace.agent
+    state_dict = torch.load(weight_file)
+    agent.load_state_dict(state_dict)
+
+    print("Checking if agent already has BC policy")
+    # print(len(agent.bc_policies))
+    agent.bc_policies.clear()
+    if cfg.bc_policy:
+        bc_policy, _, _ = train_bc_mw.load_model(cfg.bc_policy, device)
+        agent.add_bc_policy(bc_policy)
+
+    agent = agent.to(device)
+
+
+
+    return agent, eval_env, eval_env_params, workplace
+
+
+    
+
+
+
 def main(cfg: MainConfig):
     workspace = Workspace(cfg)
 
@@ -405,4 +507,20 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True  # type: ignore
 
     cfg = pyrallis.parse(config_class=MainConfig)  # type: ignore
-    main(cfg)
+    if cfg.load_RL_model is not None:
+        agent, eval_env, eval_env_params, workplace = load_model(cfg.load_RL_model, "cuda")
+        print(eval_env_params)
+        print("######______ Prev Agent Retrieved ______######\n")
+        print("######______ Loading into Current agent ______######\n")
+        workplace.agent = agent
+        print("######______ Successfully Loaded Current agent ______######\n")
+        print("")
+        print(f"+++++ - - - Loaded ReplayBuffer - - - +++++ >>>> "
+              f"Prev num_success [last 500 episodes]: {workplace.replay.num_success}")
+        workplace.replay.num_success = 0    # reset num_sucess and start fresh recording
+        print("\n Resuming Training. . . . . . . . \n")
+        workplace.train()
+        # print(f"Global step: {workplace.global_step}")
+    else:
+        print("##_______________________ Default Training __________________________##")
+        main(cfg)
