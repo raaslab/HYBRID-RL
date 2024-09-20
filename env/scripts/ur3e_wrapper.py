@@ -55,7 +55,7 @@ class UR3eEnvConfig:
     rl_image_size: int = 224
     use_depth: int = 0
     # rl_camera: str = "robot0_eye_in_hand"
-    rl_camera: str = "corner2+eye_in_hand"
+    rl_camera: str = "corner2"
     randomize: int = 0
     show_camera: int = 1
     drop_after_terminal: int = 1
@@ -341,8 +341,8 @@ def test():
 
 
 
-    # action = np.array([0.0016, -0.0041, -0.0028, 0, 0, 0, 0.0497])    
-    # env.apply_action(action)
+    action = np.array([0.0, -0.0, 0.03, 0, 0, 0, 0.0])    
+    env.apply_action(action)
 
     # with Rate(10.0):
     # print("--- Random Action ----")

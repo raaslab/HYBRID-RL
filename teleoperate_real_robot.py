@@ -88,7 +88,7 @@ def teleoperation():
             joint_states = obs['joint_positions']
             ee_pos_quat = np.concatenate((obs['robot0_eef_pos'], obs['robot0_eef_quat']))
             dt = datetime.datetime.now()
-            # save_frame(save_path, dt, joint_states, ee_pos_quat, csv_file_name)
+            save_frame(save_path, dt, joint_states, ee_pos_quat, csv_file_name)
 
 
         except KeyboardInterrupt:

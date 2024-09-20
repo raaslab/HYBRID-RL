@@ -63,7 +63,7 @@ class URTDEControllerConfig:
 
     ## --------- Newly Added ----------- ##
     agent: str = "ur"
-    hostname: str = "10.104.56.158"
+    hostname: str = "10.104.59.112"
     # hostname: str = "192.168.77.243"
     robot_port: int = 50003  # for trajectory
     robot_ip: str = "192.168.77.21" 
