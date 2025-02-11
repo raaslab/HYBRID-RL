@@ -13,7 +13,31 @@ from bc.bc_policy import StateBcPolicy, StateBcPolicyConfig
 from bc.bc_policy import BcPolicy, BcPolicyConfig
 from evaluate import run_eval_mp
 from env.robosuite_wrapper import PixelRobosuite
+from datetime import datetime
+from pyrallis import encode
 
+
+# # Register custom encoders for Pyrallis to handle custom configurations
+# @encode.register(BcPolicyConfig)
+# def encode_bc_policy_config(config):
+#     return {
+#         'encoder': encode(config.encoder),  # Make sure the encoder config is also serializable
+#         'use_prop': config.use_prop,
+#         'prop_noise': config.prop_noise,
+#         'hidden_dim': config.hidden_dim,
+#         'num_layer': config.num_layer,
+#         'dropout': config.dropout,
+#         'orth_init': config.orth_init,
+#         'use_residual': config.use_residual,
+#     }@encode.register(DatasetConfig)
+
+# def encode_dataset_config(config):
+#     return {
+#         'task_name': config.task_name,
+#         'robot': config.robot,
+#         'image_size': config.image_size,
+#         'rl_image_size': config.rl_image_size
+#     }
 
 @dataclass
 class MainConfig(common_utils.RunConfig):
@@ -21,8 +45,9 @@ class MainConfig(common_utils.RunConfig):
     state_policy: StateBcPolicyConfig = field(default_factory=lambda: StateBcPolicyConfig())
     policy: BcPolicyConfig = field(default_factory=lambda: BcPolicyConfig())
     # training
-    seed: int = 1
+    seed: int = 0
     load_model: str = "none"
+    # num_epoch: int = 20
     num_epoch: int = 20
     epoch_len: int = 500
     batch_size: int = 32
@@ -32,12 +57,14 @@ class MainConfig(common_utils.RunConfig):
     # eval
     num_eval_episode: int = 50
     # to be overwritten by run() to facilitate model loading
-    task_name: str = ""
+    task_name: str = "lift"
     robots: list[str] = field(default_factory=lambda: [])
-    image_size: int = -1
-    rl_image_size: int = -1
+    # image_size: int = -1
+    image_size: int = 96
+    # rl_image_size: int = -1
+    rl_image_size: int = 96
     # log
-    save_dir: str = "exps/bc/real_robot"
+    save_dir: str = f"exps/bc/real_robot_push_eye_in_hand_{datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}"
     use_wb: int = 0
     save_per: int = -1
 
@@ -137,7 +164,7 @@ def run(cfg: MainConfig, policy):
 
             if (epoch + 1) % 5 == 0 or (epoch == cfg.num_epoch - 1):
                 # eval the last checkpoint
-                scores = evaluate(policy, dataset, num_game=100, seed=1)
+                scores = evaluate(policy, dataset, num_game=100, seed=0)
                 stat["last_ckpt_score"].append(np.mean(scores))
 
         stat.summary(epoch)
@@ -149,7 +176,7 @@ def run(cfg: MainConfig, policy):
         # eval the best performing model again
         best_model = saver.get_best_model()
         policy.load_state_dict(torch.load(best_model))
-        scores = evaluate(policy, dataset, num_game=100, seed=1)
+        scores = evaluate(policy, dataset, num_game=100, seed=0)
         stat["best_ckpt_score"].append(np.mean(scores))
         stat.summary(cfg.num_epoch)
 
@@ -237,9 +264,3 @@ if __name__ == "__main__":
         policy = None
 
     run(cfg, policy=policy)
-
-    
-
-    
-    
-    

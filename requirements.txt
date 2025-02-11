@@ -66,3 +66,6 @@ zipp==3.18.1
 wandb==0.16.4
 tqdm
 scikit-learn
+zmq
+ur-rtde
+pyrealsense2
