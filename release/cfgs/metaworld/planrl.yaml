@@ -3,14 +3,12 @@ stddev_max: 0.1
 bc_policy: "assembly"
 preload_num_data: 3
 env_reward_scale: 1
-use_bc: 0
-mix_rl_rate: 0.5
-num_train_step: 100000
+num_train_step: 60000
 replay_buffer_size: 500
-use_wb: 1
+use_wb: 0
 num_eval_episode: 20
 q_agent:
-  act_method: "rl"
+  act_method: "ibrl"
   enc_type: "drq"
   actor:
     dropout: 0

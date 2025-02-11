@@ -19,7 +19,7 @@ from eval_mw import run_eval
 import cv2
 import torch.nn as nn
 from torchvision import models
-from mask import SegmentedHybridResNet
+from modenet.mask import SegmentedHybridResNet
 # from mode_classifier_image import HybridResNet,device
 from waypoint import WaypointPredictor
 

@@ -19,7 +19,7 @@ from eval_mw import run_eval
 import cv2
 import torch.nn as nn
 from torchvision import models
-from mode_classifier_image import HybridResNet
+from modenet.mode_classifier_image import HybridResNet
 from waypoint import WaypointPredictor
 
 
@@ -50,7 +50,7 @@ BC_DATASETS = {
 @dataclass
 class MainConfig(common_utils.RunConfig):
     seed: int = 3
-    # Sparse control parameters
+    # motionplan control parameters
     Kp = 3.5
     # env
     episode_length: int = 200
@@ -160,16 +160,16 @@ class Workspace:
 
 
         assert not cfg.q_agent.use_prop, "not implemented"
-        self.agent = QAgent(
-            False,
-            self.train_env.observation_shape,
-            (4,),  # prop shape, does not matter as we do not use prop in metaworld
-            self.train_env.num_action,
-            rl_camera="obs",
-            cfg=cfg.q_agent,
-        )
-        if self.bc_policy is not None:
-            self.agent.add_bc_policy(bc_policy=copy.deepcopy(self.bc_policy))
+        # self.agent = QAgent(
+        #     False,
+        #     self.train_env.observation_shape,
+        #     (4,),  # prop shape, does not matter as we do not use prop in metaworld
+        #     self.train_env.num_action,
+        #     rl_camera="obs",
+        #     cfg=cfg.q_agent,
+        # )
+        # if self.bc_policy is not None:
+        #     self.agent.add_bc_policy(bc_policy=copy.deepcopy(self.bc_policy))
 
         self._setup_replay()
         self.ref_agent: Optional[QAgent] = None
@@ -240,14 +240,9 @@ class Workspace:
             if self.bc_policy is not None:
                 with torch.no_grad(), utils.eval_mode(self.bc_policy):
                     action = self.bc_policy.act(obs, eval_mode=True)
-            # else:
-            #     if self.cfg.pretrain_num_epoch > 0:
-            #         # the policy has been pretrained
-            #         with torch.no_grad(), utils.eval_mode(self.agent):
-            #             action = self.agent.act(obs, eval_mode=True)
-            #     else:
-            #         action = torch.zeros(self.train_env.action_dim)
-            #         action = action.uniform_(-1.0, 1.0)
+            else:
+                raise ValueError("BC Policy not specified")
+
 
             obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
             reply = {"action": action}
@@ -274,7 +269,7 @@ class Workspace:
             wb_group_name=self.cfg.wb_group,
             config=self.cfg_dict,
         )
-        self.agent.set_stats(stat)
+        # self.agent.set_stats(stat)
         saver = common_utils.TopkSaver(save_dir=self.work_dir, topk=1)
         # self.warm_up()
         self.num_success = self.replay.num_success
@@ -288,27 +283,20 @@ class Workspace:
             current_prop = obs['prop']  # Adapt these keys based on how your observations are structured
             current_image = image_obs['corner2']
             mode_img = np.zeros((400,400))
-            # object_pos = self.train_env.first_obs_pos
             mode = self.determine_mode(current_image)
-            # mode = "dense"
-            # print(f"Determined Mode: {mode}")
+
             ### Act based on mode ###
-            if mode == 'sparse':
-                # action= self.servoing(obs, object_pos)
+            if mode == 'motionplan':
                 with torch.no_grad():
                     predicted_waypoint = self.waypoint_predictor(torch.tensor(current_image, dtype=torch.float32, device="cuda").unsqueeze(0),
                                          torch.tensor(current_prop[-1], dtype=torch.float32, device = "cuda").unsqueeze(0).unsqueeze(-1)).squeeze(0)
                 action= self.servoing(obs, predicted_waypoint)
                 mode = self.determine_mode(current_image)
             ### act ###
-            if mode == 'dense':
+            if mode == 'interact':
                 with torch.no_grad(), utils.eval_mode(self.bc_policy):
                     action = self.bc_policy.act(obs, eval_mode=True)
-                # with stopwatch.time("act"), torch.no_grad(), utils.eval_mode(self.agent):
-                #     stddev = utils.schedule(self.cfg.stddev_schedule, self.global_step)
-                #     action = self.agent.act(obs, stddev=stddev, eval_mode=False)
-                #     stat["data/stddev"].append(stddev)
-                # print(f"Dense Mode Action: {action}")
+                # print(f"interact Mode Action: {action}")
             with stopwatch.time("env step"):
                 obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
                 # ----> Render the environment <----
@@ -316,7 +304,7 @@ class Workspace:
                 #     img = self.train_env.env.env.render(mode='rgb_array')
                 #     mode_img = cv2.putText(mode_img, str(reward), (mode_img.shape[1]//2 - 50, mode_img.shape[0]//2-50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2, cv2.LINE_AA)
                 #     mode_img = cv2.putText(mode_img, mode, (mode_img.shape[1]//2 - 80, mode_img.shape[0]//2), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2, cv2.LINE_AA)
-                #     if mode=="sparse":
+                #     if mode=="motionplan":
                 #         mode_img = cv2.putText(mode_img, f"X: {predicted_waypoint[0]}", 
                 #                                (50, mode_img.shape[0]//2+50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
                 #         mode_img = cv2.putText(mode_img, f"Y: {predicted_waypoint[1]}", 
@@ -355,12 +343,6 @@ class Workspace:
             if self.global_step % self.cfg.log_per_step == 0:
                 self.log_and_save(stopwatch, stat, saver)
 
-            ### train ###
-            # if self.global_step % self.cfg.update_freq == 0:
-            #     with stopwatch.time("train"):
-            #         self.rl_train(stat)
-            #         self.train_step += 1
-
         # cv2.destroyAllWindows()
 
     def log_and_save(
@@ -379,7 +361,7 @@ class Workspace:
         stat["score/num_success"].append(self.replay.num_success)
 
         with stopwatch.time("eval"):
-            eval_score = self.eval(seed=self.global_step, policy=self.agent)
+            eval_score = self.eval(seed=self.global_step, policy=self.bc_policy)
             stat["score/score"].append(eval_score)
 
         # saved = saver.save(self.agent.state_dict(), eval_score, save_latest=True)
@@ -389,69 +371,6 @@ class Workspace:
         stopwatch.summary(reset=True)
         print("total time:", common_utils.sec2str(stopwatch.total_time))
         print(common_utils.get_mem_usage())
-
-    # def rl_train(self, stat: common_utils.MultiCounter):
-    #     stddev = utils.schedule(self.cfg.stddev_schedule, self.global_step)
-    #     for i in range(self.cfg.num_critic_update):
-    #         if self.cfg.mix_rl_rate < 1:
-    #             rl_bsize = int(self.cfg.batch_size * self.cfg.mix_rl_rate)
-    #             bc_bsize = self.cfg.batch_size - rl_bsize
-    #             batch = self.replay.sample_rl_bc(rl_bsize, bc_bsize, "cuda:0")
-    #         else:
-    #             batch = self.replay.sample(self.cfg.batch_size, "cuda:0")
-
-    #         update_actor = i == self.cfg.num_critic_update - 1
-
-    #         if update_actor and self.cfg.add_bc_loss:
-    #             bc_batch = self.replay.sample_bc(self.cfg.batch_size, "cuda:0")
-    #         else:
-    #             bc_batch = None
-
-    #         if self.cfg.add_bc_loss:
-    #             metrics = self.agent.update(batch, stddev, update_actor, bc_batch, self.ref_agent)
-    #         else:
-    #             metrics = self.agent.update(batch, stddev, update_actor)
-
-    #         stat.append(metrics)
-    #         stat["data/discount"].append(batch.bootstrap.mean().item())
-
-    def pretrain_policy(self):
-        stat = common_utils.MultiCounter(
-            self.work_dir,
-            bool(self.cfg.use_wb),
-            wb_exp_name=self.cfg.wb_exp,
-            wb_run_name=self.cfg.wb_run,
-            wb_group_name=self.cfg.wb_group,
-            config=self.cfg_dict,
-        )
-        saver = common_utils.TopkSaver(save_dir=self.work_dir, topk=1)
-
-        for epoch in range(self.cfg.pretrain_num_epoch):
-            for _ in range(self.cfg.pretrain_epoch_len):
-                batch = self.replay.sample_bc(self.cfg.batch_size, "cuda")
-                metrics = self.agent.pretrain_actor_with_bc(batch)
-                stat.append(metrics)
-
-            eval_seed = epoch * self.cfg.pretrain_epoch_len
-            score = self.eval(eval_seed, policy=self.agent)
-            stat["pretrain/score"].append(score)
-            saved = saver.save(self.agent.state_dict(), score, save_latest=True)
-
-            stat.summary(epoch, reset=True)
-            print(f"saved?: {saved}")
-            print(common_utils.get_mem_usage())
-
-    # def determine_mode(self, obs, object_pos):
-    #     difference = object_pos - obs["prop"][:3]
-    #     threshold = torch.norm(difference).item()
-    #     # print(f"Threshold: {threshold}")
-    #     # if threshold > SPARSE_THRESHOLD and obs["prop"][3] >= 1.0:  # Define your threshold
-    #     if threshold > SPARSE_THRESHOLD:  # Define your threshold
-    #         return 'sparse'
-    #     else:
-    #         return 'dense'
-
-
 
 
 
@@ -472,7 +391,7 @@ class Workspace:
         with torch.no_grad():
             outputs = self.classifier_model(corner2_image)
             predicted_mode = torch.argmax(outputs, dim=1).item()  # Returns 0 or 1
-        return 'sparse' if predicted_mode == 0 else 'dense'
+        return 'motionplan' if predicted_mode == 0 else 'interact'
 
 
     def servoing(self, obs, waypoint):
@@ -480,13 +399,13 @@ class Workspace:
         error = torch.tensor(100.0, dtype=torch.float32).to(self.train_env.device)
         gripper_control = -1
         step_count = 0  # Define step_count here
-        # while torch.norm(error).item() > SPARSE_THRESHOLD:
-            # Compute the error
+
+        # Compute the error
         error = waypoint - obs["prop"][:3]  # obs["prop"][:3] - first object position
 
         # Convert the error tensor to a NumPy array
         error_np = error.cpu().numpy()
-        # print("error_)))))))))0000000000000000000000",torch.norm(error).item())
+
         # Compute the control action
         control_action = self.Kp * error_np
         
@@ -504,10 +423,6 @@ class Workspace:
 def main(cfg: MainConfig):
     workspace = Workspace(cfg)
 
-    if cfg.pretrain_num_epoch > 0:
-        print("pretraining:")
-        workspace.pretrain_policy()
-        workspace.ref_agent = copy.deepcopy(workspace.agent)
 
     workspace.train()
 

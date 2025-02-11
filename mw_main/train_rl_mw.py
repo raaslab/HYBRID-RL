@@ -20,7 +20,7 @@ import cv2
 import torch.nn as nn
 from torchvision import models
 # from mask import SegmentedHybridResNet
-from mode_classifier_image import HybridResNet,device
+from modenet.mode_classifier_image import HybridResNet,device
 from waypoint import WaypointPredictor
 
 
@@ -34,10 +34,10 @@ def predict_waypoint(model, corner2_image, prop):
     return waypoint.numpy().flatten()
 
 BC_POLICIES = {
-    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_2_Assembly/model1.pt",
-    "boxclose": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_2_BoxClose/model1.pt",
-    "coffeepush": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_CoffeePush/model1.pt",
-    "stickpull": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_StickPull/model1.pt",
+    "assembly": "exps/bc/metaworld/data_seed_2_Assembly/model1.pt",
+    "boxclose": "exps/bc/metaworld/data_seed_2_BoxClose/model1.pt",
+    "coffeepush": "exps/bc/metaworld/data_seed_0_CoffeePush/model1.pt",
+    "stickpull": "exps/bc/metaworld/data_seed_0_StickPull/model1.pt",
 }
 
 BC_DATASETS = {
@@ -51,7 +51,7 @@ BC_DATASETS = {
 @dataclass
 class MainConfig(common_utils.RunConfig):
     seed: int = 4
-    # Sparse control parameters
+    # motionplan control parameters
     Kp = 15
     # env
     episode_length: int = 200
@@ -92,8 +92,8 @@ class MainConfig(common_utils.RunConfig):
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
             dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
 
-        self.save_dir = f"exps/rl/metaworld/hyrl/hyrl_render_rand/hyrl_seed_{self.seed}_{dataset_name}_rendering"
-        # self.save_dir = f"exps/rl/metaworld/hyrl/randomize_eval_test"
+        self.save_dir = f"exps/rl/metaworld/planrl/planrl_render_rand/planrl_seed_{self.seed}_{dataset_name}_rendering"
+        # self.save_dir = f"exps/rl/metaworld/planrl/randomize_eval_test"
 
 
 
@@ -108,10 +108,10 @@ class Workspace:
         self.work_dir = cfg.save_dir
         print(f"workspace: {self.work_dir}")
 
-        # # # Create a video window
-        self.window_name = 'Metaworld Environment'
-        cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(self.window_name, 600, 600) 
+        # # # # Create a video window
+        # self.window_name = 'Metaworld Environment'
+        # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
+        # cv2.resizeWindow(self.window_name, 600, 600) 
 
         common_utils.set_all_seeds(cfg.seed)
         sys.stdout = common_utils.Logger(cfg.log_path, print_to_stdout=True)
@@ -291,49 +291,37 @@ class Workspace:
         self.warm_up()
         self.num_success = self.replay.num_success
         stopwatch = common_utils.Stopwatch()
-        # moving_to_waypoint = False
-        # current_waypoint = None
 
         obs, image_obs = self.train_env.reset()
         self.replay.new_episode(obs)
         print(obs.keys())  # To see all keys in the observation dictionary
         print(image_obs.keys())  # If image_obs is a dictionary, check its structure
-        # mode="sparse"
+
         while self.global_step < self.cfg.num_train_step:    
             current_prop = obs['prop']  # Adapt these keys based on how your observations are structured
             current_image = image_obs['corner2']
             mode_img = np.zeros((400,400))
             # object_pos = self.train_env.first_obs_pos
             mode = self.determine_mode(current_image)
-            # mode = "dense"
-            # print(f"Determined Mode: {mode}")
+
             ### Act based on mode ###
-            if mode == 'sparse':
-                # if not moving_to_waypoint:
-                    # Only predict new waypoint if we're not already moving to one
+            if mode == 'motionplan':
                 with torch.no_grad():
                     predicted_waypoint = self.waypoint_predictor(
                         torch.tensor(current_image, dtype=torch.float32, device="cuda").unsqueeze(0),
                         torch.tensor(current_prop[-1], dtype=torch.float32, device="cuda").unsqueeze(0).unsqueeze(-1)
                     ).squeeze(0)  # Keep it as a GPU tensor
-                    # current_waypoint = predicted_waypoint
-                    # moving_to_waypoint = True
 
                 action = self.servoing(obs, predicted_waypoint)
                 mode = self.determine_mode(current_image)
-                # mode="dense"
-                # # Check if waypoint is reached
-                # if self.waypoint_reached(obs['prop'][:3], current_waypoint):
-                #     moving_to_waypoint = False
-                #     mode = 'dense' 
-                # print(f"Waypoint Reached Status: {self.waypoint_reached(obs['prop'][:3], current_waypoint)} ")
+
             ### act ###
-            if mode == 'dense':
+            if mode == 'interact':
                 with stopwatch.time("act"), torch.no_grad(), utils.eval_mode(self.agent):
                     stddev = utils.schedule(self.cfg.stddev_schedule, self.global_step)
                     action = self.agent.act(obs, stddev=stddev, eval_mode=False)
                     stat["data/stddev"].append(stddev)
-                # print(f"Dense Mode Action: {action}")
+                # print(f"interact Mode Action: {action}")
             with stopwatch.time("env step"):
                 obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
                 # ----> Render the environment <----
@@ -341,9 +329,9 @@ class Workspace:
                     img = self.train_env.env.env.render(mode='rgb_array')
 
                     mode_img = cv2.putText(mode_img, str(reward), (mode_img.shape[1]//2 - 10, mode_img.shape[0]//2-60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2, cv2.LINE_AA)
-                    if mode == "dense":
+                    if mode == "interact":
                         mode_img = cv2.putText(mode_img, "Interact", (mode_img.shape[1]//2 - 110, mode_img.shape[0]//2), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2, cv2.LINE_AA)
-                    if mode=="sparse":
+                    if mode=="motionplan":
                         mode_img = cv2.putText(mode_img, "Navigate", (mode_img.shape[1]//2 - 110, mode_img.shape[0]//2), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2, cv2.LINE_AA)
                         mode_img = cv2.putText(mode_img, f"X: {predicted_waypoint[0]}", 
                                                (50, mode_img.shape[0]//2+50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
@@ -376,8 +364,6 @@ class Workspace:
                     # reset env
                     obs, image_obs = self.train_env.reset()
                     mode = self.determine_mode(current_image)
-                    # mode="sparse"
-                    # print(f"prop: {obs['prop']}")
                     self.replay.new_episode(obs)
 
             ### logging ###
@@ -470,16 +456,6 @@ class Workspace:
             print(f"saved?: {saved}")
             print(common_utils.get_mem_usage())
 
-    # def determine_mode(self, obs, object_pos):
-    #     difference = object_pos - obs["prop"][:3]
-    #     threshold = torch.norm(difference).item()
-    #     # print(f"Threshold: {threshold}")
-    #     # if threshold > SPARSE_THRESHOLD and obs["prop"][3] >= 1.0:  # Define your threshold
-    #     if threshold > SPARSE_THRESHOLD:  # Define your threshold
-    #         return 'sparse'
-    #     else:
-    #         return 'dense'
-
 
     def waypoint_reached(self, current_position, waypoint, threshold=0.035):
         """
@@ -516,7 +492,7 @@ class Workspace:
         with torch.no_grad():
             outputs = self.classifier_model(corner2_image)
             predicted_mode = torch.argmax(outputs, dim=1).item()  # Returns 0 or 1
-        return 'sparse' if predicted_mode == 0 else 'dense'
+        return 'motionplan' if predicted_mode == 0 else 'interact'
 
 
     def servoing(self, obs, waypoint):
@@ -524,13 +500,13 @@ class Workspace:
         error = torch.tensor(100.0, dtype=torch.float32).to(self.train_env.device)
         gripper_control = -1
         step_count = 0  # Define step_count here
-        # while torch.norm(error).item() > SPARSE_THRESHOLD:
-            # Compute the error
+
+        # Compute the error
         error = waypoint - obs["prop"][:3]  # obs["prop"][:3] - first object position
 
         # Convert the error tensor to a NumPy array
         error_np = error.cpu().numpy()
-        # print("error_)))))))))0000000000000000000000",torch.norm(error).item())
+
         # Compute the control action
         control_action = self.Kp * error_np
         

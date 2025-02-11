@@ -8,7 +8,7 @@ import pprint
 import pyrallis
 import torch
 import numpy as np
-import matplotlib.pyplot as plt
+
 import common_utils
 from common_utils import ibrl_utils as utils
 from rl.q_agent import QAgent, QAgentConfig
@@ -16,27 +16,15 @@ from env.metaworld_wrapper import PixelMetaWorld
 import mw_replay
 import train_bc_mw
 from eval_mw import run_eval
-import cv2
-import torch.nn as nn
-from torchvision import models
-from mode_classifier_image import HybridResNet
-from waypoint import WaypointPredictor
+import h5py
+# import cv2
 
-
-
-
-def predict_waypoint(model, corner2_image, prop):
-    with torch.no_grad():  # Ensure no gradients are computed during prediction
-        corner2_image = torch.tensor(corner2_image, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
-        prop = torch.tensor(prop, dtype=torch.float32).unsqueeze(0)  # Add batch dimension
-        waypoint = model(corner2_image, prop)
-    return waypoint.numpy().flatten()
 
 BC_POLICIES = {
-    "assembly": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_Assembly/model1.pt",
-    "boxclose": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_1_BoxClose/model1.pt",
-    "coffeepush": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_CoffeePush/model1.pt",
-    "stickpull": "/home/amisha/ibrl/exps/bc/metaworld/data_seed_0_StickPull/model1.pt",
+    "assembly": "release/model/metaworld/assembly_num_data3_num_epoch2_seed1/model1.pt",
+    "boxclose": "release/model/metaworld/boxclose_num_data3_num_epoch2_seed1/model1.pt",
+    "coffeepush": "release/model/metaworld/coffeepush_num_data3_num_epoch2_seed1/model1.pt",
+    "stickpull": "release/model/metaworld/stickpull_num_data3_num_epoch2_seed1/model1.pt",
 }
 
 BC_DATASETS = {
@@ -46,12 +34,10 @@ BC_DATASETS = {
     "stickpull": "release/data/metaworld/StickPull_frame_stack_1_96x96_end_on_success/dataset.hdf5",
 }
 
-    
+
 @dataclass
 class MainConfig(common_utils.RunConfig):
-    seed: int = 4
-    # Sparse control parameters
-    Kp = 3.5
+    seed: int = 3
     # env
     episode_length: int = 200
     # agent
@@ -73,7 +59,7 @@ class MainConfig(common_utils.RunConfig):
     preload_datapath: str = ""
     env_reward_scale: int = 1
     # others
-    num_train_step: int = 60000
+    num_train_step: int = 200000
     log_per_step: int = 5000
     num_warm_up_episode: int = 50
     num_eval_episode: int = 10
@@ -84,6 +70,7 @@ class MainConfig(common_utils.RunConfig):
     # log
     use_wb: int = 0
     save_dir: str = ""
+    load_RL_model: str = None
 
     def __post_init__(self):
         self.preload_datapath = self.bc_policy
@@ -91,9 +78,13 @@ class MainConfig(common_utils.RunConfig):
             self.preload_datapath = BC_DATASETS[self.preload_datapath]
             dataset_name = self.bc_policy.split('/')[-1]       # for saving dir
 
-        self.save_dir = f"exps/rl/metaworld/only_RL/only_RL_random_eval/RL_seed{self.seed}_{dataset_name}"
+        from datetime import datetime
+        directory = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
 
+        self.save_dir = f"exps/rl/metaworld/ibrl/{directory}_ibrl_seed{self.seed}_{dataset_name}_rand"
+        # self.save_dir = f"exps/rl/metaworld/ibrl/no_randomize_evaluation"
+        self.preload_datapath = BC_DATASETS.get(self.bc_policy, "")
 
     @property
     def stddev_schedule(self):
@@ -102,17 +93,18 @@ class MainConfig(common_utils.RunConfig):
 
 class Workspace:
     def __init__(self, cfg: MainConfig):
-        self.Kp = cfg.Kp
         self.work_dir = cfg.save_dir
         print(f"workspace: {self.work_dir}")
 
-        # Create a video window
+        # # Create a video window
         # self.window_name = 'Metaworld Environment'
         # cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         # cv2.resizeWindow(self.window_name, 600, 600) 
 
+
         common_utils.set_all_seeds(cfg.seed)
         sys.stdout = common_utils.Logger(cfg.log_path, print_to_stdout=True)
+
         pyrallis.dump(cfg, open(cfg.cfg_path, "w"))  # type: ignore
         print(common_utils.wrap_ruler("config"))
         with open(cfg.cfg_path, "r") as f:
@@ -121,6 +113,7 @@ class Workspace:
 
         self.cfg = cfg
         self.cfg_dict = yaml.safe_load(open(cfg.cfg_path, "r"))
+
         # we need bc policy to construct the environment :(, hack!
         assert cfg.bc_policy != "", "bc policy must be set to find the correct env config"
         self.env_params: dict[str, Any]
@@ -138,27 +131,6 @@ class Workspace:
         self.num_success = 0
         self._setup_env()
 
-        # Waypoint Predictor Initialization
-        dataset_name = cfg.bc_policy.split('/')[-2].split('_')[-1].lower()
-        self.waypoint_predictor = WaypointPredictor().cuda()
-        waypoint_path = f"waypoint_models/waypoint_{dataset_name}.pth"
-        print(f"Using waypoint_model_path: {waypoint_path} ")
-        self.waypoint_predictor.load_state_dict(torch.load(waypoint_path, map_location="cuda"))
-        self.waypoint_predictor.eval()  # Set the model to evaluation mode
-
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.classifier_model = HybridResNet()
-        # mode_path="/home/amisha/ibrl/mode_models_jul_03/mode_assembly.pth"
-        mode_path = "/home/amisha/ibrl/utilfiles/mode_all.pth"
-        print(f"Using mode_model_path: {mode_path}")
-        self.classifier_model.load_state_dict(torch.load(mode_path, map_location=device))
-        self.classifier_model.to(device)
-        self.classifier_model.eval()
-
-
-
-
-
         assert not cfg.q_agent.use_prop, "not implemented"
         self.agent = QAgent(
             False,
@@ -173,6 +145,9 @@ class Workspace:
 
         self._setup_replay()
         self.ref_agent: Optional[QAgent] = None
+
+        # Setup hdf5 file to reload replaybuffer
+        self.setup_replay_hdf5()
 
     def _setup_env(self):
         # camera_names = [self.cfg.rl_camera]
@@ -189,6 +164,8 @@ class Workspace:
         eval_env_params = self.env_params.copy()
         eval_env_params["env_reward_scale"] = 1.0
         eval_env_params["randomize_start"] = True
+        print(f"Eval Env Randomization check: {eval_env_params['randomize_start']}")
+        self.eval_env_params = eval_env_params
         self.eval_env = PixelMetaWorld(**eval_env_params)  # type: ignore
 
     def _setup_replay(self):
@@ -213,12 +190,34 @@ class Workspace:
                 reward_scale=self.cfg.env_reward_scale,
             )
             self.replay.freeze_bc_replay = True
+    
+    def setup_replay_hdf5(self):
+        self.replay_file = os.path.join(self.work_dir, "replay_buffer.hdf5")
+        with h5py.File(self.replay_file, "w") as f:
+            self.hdf5_data = f.create_group("data")
+
+
+    def save_hdf5(self, episode_name, actions, dones, rewards, corner2_image, prop):
+        with h5py.File(self.replay_file, "a") as f:
+            demo = f["data"].create_group(episode_name)
+            demo.create_dataset("actions", data=np.array(actions))
+            demo.create_dataset("dones", data=np.array(dones))
+            demo.create_dataset("rewards", data=np.array(rewards))
+            demo.create_dataset("states", data=np.array(prop))
+            obs = demo.create_group("obs")
+            obs.create_dataset("corner2_image", data=np.array(corner2_image))
+            obs.create_dataset("prop", data=np.array(prop))
+        # obs.create_dataset("state", data=)
+        print(f"Saved episode: {episode_name}")
+
+
+
 
     def eval(self, seed, policy):
         random_state = np.random.get_state()
         scores = run_eval(
             env=self.eval_env,
-            agent=self.agent,
+            agent=policy,
             num_game=self.cfg.num_eval_episode,
             seed=seed,
             record_dir=None,
@@ -237,17 +236,17 @@ class Workspace:
         total_reward = 0
         num_episode = 0
         while True:
-            # if self.bc_policy is not None:
-            #     with torch.no_grad(), utils.eval_mode(self.bc_policy):
-            #         action = self.bc_policy.act(obs, eval_mode=True)
-            # else:
-            if self.cfg.pretrain_num_epoch > 0:
-                # the policy has been pretrained
-                with torch.no_grad(), utils.eval_mode(self.agent):
-                    action = self.agent.act(obs, eval_mode=True)
+            if self.bc_policy is not None:
+                with torch.no_grad(), utils.eval_mode(self.bc_policy):
+                    action = self.bc_policy.act(obs, eval_mode=True)
             else:
-                action = torch.zeros(self.train_env.action_dim)
-                action = action.uniform_(-1.0, 1.0)
+                if self.cfg.pretrain_num_epoch > 0:
+                    # the policy has been pretrained
+                    with torch.no_grad(), utils.eval_mode(self.agent):
+                        action = self.agent.act(obs, eval_mode=True)
+                else:
+                    action = torch.zeros(self.train_env.action_dim)
+                    action = action.uniform_(-1.0, 1.0)
 
             obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
             reply = {"action": action}
@@ -276,80 +275,72 @@ class Workspace:
         )
         self.agent.set_stats(stat)
         saver = common_utils.TopkSaver(save_dir=self.work_dir, topk=1)
-        # self.warm_up()
+
+        self.warm_up()
         self.num_success = self.replay.num_success
         stopwatch = common_utils.Stopwatch()
 
         obs, image_obs = self.train_env.reset()
         self.replay.new_episode(obs)
-        print(obs.keys())  # To see all keys in the observation dictionary
-        print(image_obs.keys())  # If image_obs is a dictionary, check its structure
-        mode="dense"
-        while self.global_step < self.cfg.num_train_step:    
-            current_prop = obs['prop']  # Adapt these keys based on how your observations are structured
-            current_image = image_obs['corner2']
-            mode_img = np.zeros((400,400))
-            # object_pos = self.train_env.first_obs_pos
-            # mode = self.determine_mode(current_image)
-            mode = "dense"
-            # print(f"Determined Mode: {mode}")
-            ### Act based on mode ###
-            if mode == 'sparse':
-                # action= self.servoing(obs, object_pos)
-                # print("Hi i am sparse")
-                with torch.no_grad():
-                    predicted_waypoint = self.waypoint_predictor(torch.tensor(current_image, dtype=torch.float32, device="cuda").unsqueeze(0),
-                                         torch.tensor(current_prop[-1], dtype=torch.float32, device = "cuda").unsqueeze(0).unsqueeze(-1)).squeeze(0)
-                action= self.servoing(obs, predicted_waypoint)
-                mode = self.determine_mode(current_image)
+
+        # Replay buffer storing variables
+        rec_actions=[]
+        rec_images=[]
+        rec_dones=[]
+        rec_rewards=[]
+        rec_prop=[]
+        # terminal = 0    # intializing for saving replay buffer
+        # reward = 0      # intializing for saving replay buffer
+        while self.global_step < self.cfg.num_train_step:
             ### act ###
-            if mode == 'dense':
-                with stopwatch.time("act"), torch.no_grad(), utils.eval_mode(self.agent):
-                    stddev = utils.schedule(self.cfg.stddev_schedule, self.global_step)
-                    action = self.agent.act(obs, stddev=stddev, eval_mode=False)
-                    stat["data/stddev"].append(stddev)
-                # print(f"Dense Mode Action: {action}")
+            with stopwatch.time("act"), torch.no_grad(), utils.eval_mode(self.agent):
+                stddev = utils.schedule(self.cfg.stddev_schedule, self.global_step)
+                action = self.agent.act(obs, stddev=stddev, eval_mode=False)
+                stat["data/stddev"].append(stddev)
+
+            ### env.step ###
             with stopwatch.time("env step"):
                 obs, reward, terminal, success, image_obs = self.train_env.step(action.numpy())
-                # ----> Render the environment <----
-                # try:
-                #     img = self.train_env.env.env.render(mode='rgb_array')
-                #     mode_img = cv2.putText(mode_img, str(reward), (mode_img.shape[1]//2 - 50, mode_img.shape[0]//2-50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2, cv2.LINE_AA)
-                #     mode_img = cv2.putText(mode_img, mode, (mode_img.shape[1]//2 - 80, mode_img.shape[0]//2), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 2, cv2.LINE_AA)
-                #     if mode=="sparse":
-                #         mode_img = cv2.putText(mode_img, f"X: {predicted_waypoint[0]}", 
-                #                                (50, mode_img.shape[0]//2+50), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
-                #         mode_img = cv2.putText(mode_img, f"Y: {predicted_waypoint[1]}", 
-                #                                (50, mode_img.shape[0]//2+80), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)
-                #         mode_img = cv2.putText(mode_img, f"Z: {predicted_waypoint[2]}", 
-                #                                (50, mode_img.shape[0]//2+110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,0,0), 2, cv2.LINE_AA)                       
-                #     cv2.imshow(self.window_name,  cv2.cvtColor(img, cv2.COLOR_BGR2RGB))                    
-                #     cv2.imshow("Mode",  mode_img)                    
-                #     cv2.waitKey(1)
-                # except Exception as e:
-                #     print(f"Error rendering image: {e}")   
-
 
             with stopwatch.time("add"):
                 assert isinstance(terminal, bool)
                 reply = {"action": action}
                 self.replay.add(obs, reply, reward, terminal, success, image_obs)
                 self.global_step += 1
-                # print(f"Global step after increment: {self.global_step}")
-            # print(f"Global Step: {self.global_step}, Reward: {reward}, Terminal: {terminal}, Success: {success}")
+
+                # Add stuff to reload into replaybuffer         
+                rec_images.append(image_obs["corner2"].cpu().numpy())
+                rec_dones.append(int(terminal))
+                rec_rewards.append(reward)
+                rec_prop.append(obs["prop"].cpu().numpy())
+                rec_actions.append(action.numpy())
+
+
             if terminal:
-                # print(f"Terminal condition met at global step: {self.global_step}")
                 with stopwatch.time("reset"):
                     self.global_episode += 1
                     stat["score/train_score"].append(success)
                     stat["data/episode_len"].append(self.train_env.time_step)
                     if self.replay.bc_replay is not None:
-                        stat["data/bc_replay"].append(self.replay.size(bc=False))
+                        stat["data/bc_replay"].append(self.replay.size(bc=True))
+
+                    ## ----- Save to reuse for replaybuffer -----
+                    episode_num = f"demo_{self.global_episode-1}"
+                    self.save_hdf5(episode_num, rec_actions, rec_dones, rec_rewards, rec_images, rec_prop)
+                    rec_actions.clear()
+                    rec_images.clear()
+                    rec_dones.clear()
+                    rec_rewards.clear()
+                    rec_prop.clear()
+                    ## ----------------------------------------
+
                     # reset env
-                    obs, image_obs = self.train_env.reset()
-                    mode = self.determine_mode(current_image)
-                    
+                    obs, _ = self.train_env.reset()
                     self.replay.new_episode(obs)
+
+                    # print("------------------------------")
+                    # print("__________Episode Done________")
+                    # print("------------------------------")
 
             ### logging ###
             if self.global_step % self.cfg.log_per_step == 0:
@@ -360,8 +351,6 @@ class Workspace:
                 with stopwatch.time("train"):
                     self.rl_train(stat)
                     self.train_step += 1
-
-        # cv2.destroyAllWindows()
 
     def log_and_save(
         self,
@@ -377,6 +366,7 @@ class Workspace:
         stat["other/train_step"].append(self.train_step)
         stat["other/replay"].append(self.replay.size())
         stat["score/num_success"].append(self.replay.num_success)
+
 
         with stopwatch.time("eval"):
             eval_score = self.eval(seed=self.global_step, policy=self.agent)
@@ -441,64 +431,52 @@ class Workspace:
             print(f"saved?: {saved}")
             print(common_utils.get_mem_usage())
 
-    # def determine_mode(self, obs, object_pos):
-    #     difference = object_pos - obs["prop"][:3]
-    #     threshold = torch.norm(difference).item()
-    #     # print(f"Threshold: {threshold}")
-    #     # if threshold > SPARSE_THRESHOLD and obs["prop"][3] >= 1.0:  # Define your threshold
-    #     if threshold > SPARSE_THRESHOLD:  # Define your threshold
-    #         return 'sparse'
-    #     else:
-    #         return 'dense'
+
+
+def load_model(weight_file, device):
+    cfg_path = os.path.join(os.path.dirname(weight_file), f"cfg.yaml")
+    print(common_utils.wrap_ruler("config of loaded agent"))
+    with open(cfg_path, "r") as f:
+        print(f.read(), end="")
+    print(common_utils.wrap_ruler(""))
+
+    cfg = pyrallis.load(MainConfig, open(cfg_path, "r"))  # type: ignore
+    # cfg.preload_num_data = 0  # override this to avoid loading data
+    
+    # _____ Load Replay Buffer ________
+    replay_file = os.path.join(os.path.dirname(weight_file), "replay_buffer.hdf5")
+    with h5py.File(replay_file, "r") as f:
+        data = f["data"]
+        print(f"Loaded replay buffer with {len(data.keys())} episodes")
+        # cfg.preload_num_data = len(data.keys())
+        cfg.preload_num_data = cfg.replay_buffer_size
+        cfg.preload_datapath = replay_file
+    # _________________________________
+    
+    workplace = Workspace(cfg)
+
+    eval_env = workplace.eval_env
+    eval_env_params = workplace.eval_env_params
+    agent = workplace.agent
+    state_dict = torch.load(weight_file)
+    agent.load_state_dict(state_dict)
+
+    print("Checking if agent already has BC policy")
+    # print(len(agent.bc_policies))
+    agent.bc_policies.clear()
+    if cfg.bc_policy:
+        bc_policy, _, _ = train_bc_mw.load_model(cfg.bc_policy, device)
+        agent.add_bc_policy(bc_policy)
+
+    agent = agent.to(device)
 
 
 
+    return agent, eval_env, eval_env_params, workplace
 
 
+    
 
-    def determine_mode(self, corner2_image):
-        # Ensure the image is in [C, H, W] format
-        if corner2_image.shape != (3, 96, 96):  # Assuming the expected shape is [C, H, W]
-            corner2_image = corner2_image.permute(2, 0, 1)  # Change from [H, W, C] to [C, H, W]
-        # prop = prop.to(device).float()
-
-        # # Extract only the last value of the prop tensor
-        # last_prop_value = prop[-1].unsqueeze(0)  # Adds an extra dimension to match batch size of 1
-
-        corner2_image = corner2_image.to("cuda").float()
-        if len(corner2_image.shape) == 3:
-            corner2_image = corner2_image.unsqueeze(0)
-
-        with torch.no_grad():
-            outputs = self.classifier_model(corner2_image)
-            predicted_mode = torch.argmax(outputs, dim=1).item()  # Returns 0 or 1
-        return 'sparse' if predicted_mode == 0 else 'dense'
-
-
-    def servoing(self, obs, waypoint):
-        # Initialize the error tensor with a large initial value
-        error = torch.tensor(100.0, dtype=torch.float32).to(self.train_env.device)
-        gripper_control = -1
-        step_count = 0  # Define step_count here
-        # while torch.norm(error).item() > SPARSE_THRESHOLD:
-            # Compute the error
-        error = waypoint - obs["prop"][:3]  # obs["prop"][:3] - first object position
-
-        # Convert the error tensor to a NumPy array
-        error_np = error.cpu().numpy()
-        # print("error_)))))))))0000000000000000000000",torch.norm(error).item())
-        # Compute the control action
-        control_action = self.Kp * error_np
-        
-        action = np.zeros(4)
-        action[:3] = control_action
-        action[3] = gripper_control  # Control the gripper, set as needed
-
-        # Clip the action to ensure it’s within the action min and max limits
-        action = np.clip(action, -1, 1)
-
-        # print("Reached First Object")
-        return torch.tensor(action)
 
 
 def main(cfg: MainConfig):
@@ -528,4 +506,20 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True  # type: ignore
 
     cfg = pyrallis.parse(config_class=MainConfig)  # type: ignore
-    main(cfg)
+    if cfg.load_RL_model is not None:
+        agent, eval_env, eval_env_params, workplace = load_model(cfg.load_RL_model, "cuda")
+        print(eval_env_params)
+        print("######______ Prev Agent Retrieved ______######\n")
+        print("######______ Loading into Current agent ______######\n")
+        workplace.agent = agent
+        print("######______ Successfully Loaded Current agent ______######\n")
+        print("")
+        print(f"+++++ - - - Loaded ReplayBuffer - - - +++++ >>>> "
+              f"Prev num_success [last 500 episodes]: {workplace.replay.num_success}")
+        workplace.replay.num_success = 0    # reset num_sucess and start fresh recording
+        print("\n Resuming Training. . . . . . . . \n")
+        workplace.train()
+        # print(f"Global step: {workplace.global_step}")
+    else:
+        print("##_______________________ Default Training __________________________##")
+        main(cfg)

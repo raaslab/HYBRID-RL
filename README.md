@@ -1,59 +1,62 @@
-# Imitation Bootstrapped Reinforcement Learning
+# PLANRL: A Motion Planning and Imitation Learning Framework to Bootstrap Reinforcement Learning
 
-Implementation of _Imitation Bootstrapped Reinforcement Learning (IBRL)_ and baeslines (RLPD, RFT) on Robomimic and Meta-World Tasks.
+[![Paper](https://img.shields.io/badge/Paper-%20%F0%9F%93%84-blue)](https://arxiv.org/abs/2408.04054)
+[![Website](https://img.shields.io/badge/Website-%F0%9F%8C%90-orange)](https://raaslab.org/projects/NAVINACT/index.html)
 
-[![Paper](https://img.shields.io/badge/Paper-%20%F0%9F%93%84-blue)](https://arxiv.org/abs/2311.02198v4)
-[![Website](https://img.shields.io/badge/Website-%F0%9F%8C%90-orange)](https://ibrl.hengyuanhu.com/)
+## Setup
 
-## Clone and compile
-
-### Clone the repo.
-We need `--recursive` to get the correct submodule
+### Clone the repo
+Use `--recursive` to get the correct submodule
 ```shell
-git clone --recursive https://github.com/hengyuan-hu/ibrl.git
+git clone --recursive https://github.com/raaslab/HYBRID-RL.git
 ```
 
-### Install dependencies
-First Install MuJoCo
+### Installing libraries
+1. Install MuJoCo
 
-Download the MuJoCo version 2.1 binaries for [Linux](https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz)
+    Dowload the MuJoCo version 2.1 for [Linux](https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz)
 
-Extract the downloaded mujoco210 directory into `~/.mujoco/mujoco210`.
+    Extract the downloaded mujoco210 directory into `~/.mujoco/mujoco210`
 
-### Create conda env
+    ```shell
+    wget https://mujoco.org/download/mujoco210-linux-x86_64.tar.gz
+    mkdir -p ~/.mujoco
+    tar -xvzf mujoco210-linux-x86_64.tar.gz -C ~/.mujoco
+    rm mujoco210-linux-x86_64.tar.gz
+    ```
 
-First create a conda env with name `ibrl`.
-```shell
-conda create --name ibrl python=3.9
-```
+2. Create conda env
 
-Then, source `set_env.sh` to activate `ibrl` conda env. It also setup several important paths such as `MUJOCO_PY_MUJOCO_PATH` and add current project folder to `PYTHONPATH`.
-Note that if the conda env has a different name, you will need to manually modify the `set_env.sh`.
-You also need to modify the `set_env.sh` if the mujoco is not installed at the default location.
+    ```shell
+    conda create --name planrl python=3.9
+    ```
 
-```shell
-# NOTE: run this once per shell before running any script from this repo
-source set_env.sh
-```
+    Then, source `set_env.sh` to activate `planrl` conda env and setup paths such as `MUJOCO_PY_MUJOCO_PATH` and add current project folder to `PYTHONPATH`
+    
+    If conda env has a different name, manually modify the env name in `set_env.sh` file. Same case if the mujoco is not installed at default location
 
-Then install python dependencies
-```shell
-# first install pytorch with correct cuda version, in our case we use torch 2.1 with cu121
-pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu121
+    ```shell
+    source set_env.sh
+    ```
 
-# then install extra dependencies from requirement.txt
-pip install -r requirements.txt
-```
-If the command above does not work for your versions.
-Please check out `tools/core_packages.txt` for a list of commands to manually install relavent packages.
+3. Install Python dependencies
 
+    ```shell
+    # install pytorch with cuda version 12.1
+    pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu121
 
-### Compile C++ code
-We have a C++ module in the common utils that requires compilation
-```shell
-cd common_utils
-make
-```
+    # install dependencies from requirement.txt
+    pip install -r requirements.txt
+    ```
+
+4. Compile C++ code
+    ```
+    cd common_utils
+    make
+    ```
+
+5. Install ompl library - [_will be updated shortly_]
+
 
 ### Trouble Shooting
 Later when running the training commands, if we encounter the following error
@@ -68,169 +71,90 @@ ln -sf /lib/x86_64-linux-gnu/libstdc++.so.6 PATH_TO_CONDA_ENV/bin/../lib/libstdc
 ln -sf /lib/x86_64-linux-gnu/libstdc++.so.6 PATH_TO_CONDA_ENV/bin/../lib/libstdc++.so.6
 ```
 
+
 ## Reproduce Results
 
-Remember to run `source set_env.sh`  once per shell before running any script from this repo.
 
+Download dataset and models from [Googledrive](www.google.com)
 
-### Download data and BC models
-
-Download dataset and models from [Google Drive](https://drive.google.com/file/d/1F2yH84Iqv0qRPmfH8o-kSzgtfaoqMzWE/view?usp=sharing) and put the folders under `release` folder.
-The release folder should contain `release/cfgs` (already shipped with the repo), `release/data` and `release/model` (the latter two are from the downloaded zip file).
-
-
-### Robomimic (pixel)
-
-Train RL policy using the BC policy provided in `release` folder
-
-#### IBRL
-
-```shell
-# can
-python train_rl.py --config_path release/cfgs/robomimic_rl/can_ibrl.yaml
-
-# square
-python train_rl.py --config_path release/cfgs/robomimic_rl/square_ibrl.yaml
-```
-
-Use `--save_dir PATH` to specify where to store the logs and models.
-Use `--use_wb 0` to disable logging to weight and bias.
-
-Use the following commands to train a BC policy from scratch.
-We find that IBRL is not sensitive to the exact performance of the BC policy.
-```shell
-# can
-python train_bc.py --config_path release/cfgs/robomimic_bc/can.yaml
-
-# square
-python train_bc.py --config_path release/cfgs/robomimic_bc/square.yaml
-```
-
-#### RLPD
-
-```shell
-# can
-python train_rl.py --config_path release/cfgs/robomimic_rl/can_rlpd.yaml
-
-# square
-python train_rl.py --config_path release/cfgs/robomimic_rl/square_rlpd.yaml
-```
-
-#### RFT (Regularized Fine-Tuning)
-
-These commands run RFT from pretrained models in `release` folder.
-```shell
-# can rft
-python train_rl.py --config_path release/cfgs/robomimic_rl/can_rft.yaml
-
-# square rft
-python train_rl.py --config_path release/cfgs/robomimic_rl/square_rft.yaml
-```
-
-To only perform pretraining:
-```shell
-# can, pretraining for 5 x 10,000 steps
-python train_rl.py --config_path release/cfgs/robomimic_rl/can_rft.yaml --pretrain_only 1 --pretrain_num_epoch 5 --load_pretrained_agent None
-
-# square, pretraining for 10 x 10,000 steps
-python train_rl.py --config_path release/cfgs/robomimic_rl/square_rft.yaml --pretrain_only 1 --pretrain_num_epoch 10 --load_pretrained_agent None
-```
----
-
-### Robomimic (state)
-
-#### IBRL
-
-Train IBRL using the provided state BC policies:
-```shell
-# can state
-python train_rl.py --config_path release/cfgs/robomimic_rl/can_state_ibrl.yaml
-
-# square state
-python train_rl.py --config_path release/cfgs/robomimic_rl/square_state_ibrl.yaml
-```
-
-To train a state BC policy from scratch:
-```shell
-# can
-python train_bc.py --config_path release/cfgs/robomimic_bc/can_state.yaml
-
-# square
-python train_bc.py --config_path release/cfgs/robomimic_bc/square_state.yaml
-```
-
-#### RLPD
-
-```shell
-# can state
-python train_rl.py --config_path release/cfgs/robomimic_rl/can_state_rlpd.yaml
-
-# square state
-python train_rl.py --config_path release/cfgs/robomimic_rl/square_state_rlpd.yaml
-```
-
-#### RFT
-
-Since state policies are fast to train, we can just run pretrain and RL fine-tuning in one step.
-```shell
-# can
-python train_rl.py --config_path release/cfgs/robomimic_rl/can_state_rft.yaml
-
-# square
-python train_rl.py --config_path release/cfgs/robomimic_rl/square_state_rft.yaml
-```
----
+Put the folders under `release` folder. The release folder shoudl contain `release/cfgs`(already in the repo), `release/data` and `release/model` (from the the dowloaded zip file)
 
 ### Metaworld
 
-#### IBRL
-
-Train RL policy using the BC policy provided in `release` folder
+Train PLANRL
 ```shell
 # assembly
-python mw_main/train_rl_mw.py --config_path release/cfgs/metaworld/ibrl_basic.yaml --bc_policy assembly
+python mw_main/train_rl_mw.py --config_path release/cfgs/metaworld/planrl.yaml --bc_policy assembly
 
 # boxclose
-python mw_main/train_rl_mw.py --config_path release/cfgs/metaworld/ibrl_basic.yaml --bc_policy boxclose
+python mw_main/train_rl_mw.py --config_path release/cfgs/metaworld/planrl.yaml --bc_policy boxclose
 
 # coffeepush
-python mw_main/train_rl_mw.py --config_path release/cfgs/metaworld/ibrl_basic.yaml --bc_policy coffeepush
-
-# stickpull
-python mw_main/train_rl_mw.py --config_path release/cfgs/metaworld/ibrl_basic.yaml --bc_policy stickpull
+python mw_main/train_rl_mw.py --config_path release/cfgs/metaworld/planrl.yaml --bc_policy coffeepush
 ```
 
-If you want to train BC policy from scratch
+Train IBRL
 ```shell
+# assembly
+python mw_main/train_rl_mw.py --config_path release/cfgs/metaworld/ibrl.yaml --bc_policy assembly
+
+# boxclose
+python mw_main/train_rl_mw.py --config_path release/cfgs/metaworld/ibrl.yaml --bc_policy boxclose
+
+# coffeepush
+python mw_main/train_rl_mw.py --config_path release/cfgs/metaworld/ibrl.yaml --bc_policy coffeepush
+```
+
+
+Train RLMN - RL with ModeNet and NavNet
+```shell
+# assembly
+python mw_main/train_rl_mw.py --config_path release/cfgs/metaworld/only_rl.yaml --bc_policy assembly
+
+# boxclose
+python mw_main/train_rl_mw.py --config_path release/cfgs/metaworld/only_rl.yaml --bc_policy boxclose
+
+# coffeepush
+python mw_main/train_rl_mw.py --config_path release/cfgs/metaworld/only_rl.yaml --bc_policy coffeepush
+```
+
+Run IL with ModeNet and NavNet
+```shell
+# assembly
+python mw_main/mw_planrl_IL.py --config_path release/cfgs/metaworld/only_IL.yaml --bc_policy assembly
+
+# boxclose
+python mw_main/mw_planrl_IL.py --config_path release/cfgs/metaworld/only_IL.yaml --bc_policy boxclose
+
+# coffeepush
+python mw_main/mw_planrl_IL.py --config_path release/cfgs/metaworld/only_IL.yaml --bc_policy coffeepush
+```
+
+
+Train BC policy
+```shell
+# assembly
 python mw_main/train_bc_mw.py --dataset.path Assembly --save_dir SAVE_DIR
 ```
 
-#### RPLD
-
-Note that we still specify `bc_policy` to specify the task name, but we don't use it in baselines.
-This is special to `train_rl_mw.py`.
-
+<!-- 
+Train ModeNet
 ```shell
-python mw_main/train_rl_mw.py --config_path release/cfgs/metaworld/rlpd.yaml --bc_policy assembly --use_wb 0
+
 ```
 
-#### RFT
-
-For simplicity, here this one command performs both pretraining and RL training.
+Train NavNet
 ```shell
-python mw_main/train_rl_mw.py --config_path release/cfgs/metaworld/rft.yaml --bc_policy assembly --use_wb 0
-```
----
 
-## Citation
+``` -->
 
+
+Citation
 ```
-@misc{hu2023imitation,
-    title={Imitation Bootstrapped Reinforcement Learning},
-    author={Hengyuan Hu and Suvir Mirchandani and Dorsa Sadigh},
-    year={2023},
-    eprint={2311.02198},
-    archivePrefix={arXiv},
-    primaryClass={cs.LG}
+@article{bhaskar2024PLANRL,
+    title={PLANRL: A Motion Planning and Imitation Learning Framework to Bootstrap Reinforcement Learning},
+    author={Bhaskar, Amisha and Mahammad, Zahiruddin and Jadhav, Sachin R and Tokekar, Pratap},
+    journal={arXiv preprint arXiv:2408.04054},
+    year={2024}
 }
 ```

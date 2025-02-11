@@ -17,7 +17,7 @@ from rl import replay
 import train_bc
 from mw_main.waypoint_prediction_robosuite import WaypointPredictor
 import cv2
-from mw_main.mode_classifier_image import HybridResNet, device
+from modenet.mode_classifier_image import HybridResNet, device
 import torch.nn.functional as F
 
 
